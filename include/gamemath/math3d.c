@@ -35,7 +35,7 @@ void math3d_lookat(const lookat_t* lookat)
 fix16_t math3d_view_distance_calc(int16_t screen_width, angle_t fov_angle)
 {
 	//No point in screwing with this, the warped look is being done by something else
-	fov_angle = clamp(fov_angle, MIN_FOV_ANGLE, MAX_FOV_ANGLE);
+	fov_angle = CLAMP(fov_angle, MIN_FOV_ANGLE, MAX_FOV_ANGLE);
 	assert(fov_angle != MIN_FOV_ANGLE);
 	assert(fov_angle != MAX_FOV_ANGLE);
 	

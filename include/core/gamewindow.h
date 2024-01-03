@@ -11,18 +11,17 @@
 #include <stdbool.h>
 
 
-#define TITLE_MAX		256
+#define GAMEWINDOW_TITLE_MAX		128
 
 
 typedef struct GAMEWINDOW
 {
-	WINDOW gw;
+	WINDOW win;
 	
-	char title[TITLE_MAX];
-	uint32_t width, height, scale;
+	char title[GAMEWINDOW_TITLE_MAX];
+	uint32_t width, height;
 	bool displayFramerate;
-	
-	int16_vec2_t framebufferOffset;
+	uint32_t frameCount;
 	
 } gamewindow_t;
 

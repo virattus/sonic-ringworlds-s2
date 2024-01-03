@@ -5,327 +5,404 @@
 
 #include <mic3d.h>
 
-#include <gfx/vdp1/vdp1_displaylist.h>
+#include <gfx/vram.h>
+
+#include <gfx/render/drawstate.h>
+#include <gfx/render/primitive.h>
+#include <gfx/render/software/draw.h>
+
+#include <stdbool.h>
+#include <assert.h>
 
 
-#include "backend/cd_loader.h"
-#include "backend/workarea.h"
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 224
 
-#include "object/character/character.h"
-#include "object/character/sonic/sonic.h"
 
-#include "collision/octree.h"
+#define STATE_IDLE (-1)
+#define STATE_TYPE_SET (0)
+#define STATE_DRAW_MODE_SET (1)
+#define STATE_VERTEX_SELECT (2)
+#define STATE_VERTEX_RESET (3)
 
-#include "backend/ssv.h"
 
-#define SCREEN_WIDTH	320
-#define SCREEN_HEIGHT	224
-#define SCREEN_SCALE	3
+#define PRIMITIVE_TYPE_POLYLINE (0)
+#define PRIMITIVE_TYPE_POLYGON (1)
+#define PRIMITIVE_TYPE_LINE (2)
+#define PRIMITIVE_TYPE_COUNT (3)
+
+#define PRIMITIVE_DRAW_MODE_NORMAL			(0)
+#define PRIMITIVE_DRAW_MODE_MESH			(1)
+#define PRIMITIVE_DRAW_MODE_SHADOW			(2)
+#define PRIMITIVE_DRAW_MODE_HALF_LUMINANCE	(3)
+#define PRIMITIVE_DRAW_MODE_HALF_TRANSPARENT (4)
+#define PRIMITIVE_DRAW_MODE_GOURAUD_SHADING	(5)
+#define PRIMITIVE_DRAW_MODE_HALF_LUM		(6)
+#define PRIMITIVE_DRAW_MODE_HALF_TRANS		(7)
+#define PRIMITIVE_DRAW_MODE_COUNT 			(8)
+
+#define PRIMITIVE_WIDTH 32
+#define PRIMITIVE_HEIGHT 32
+#define PRIMITIVE_HALF_WIDTH (PRIMITIVE_WIDTH / 2)
+#define PRIMITIVE_HALF_HEIGHT (PRIMITIVE_HEIGHT / 2)
+
+#define PRIMITIVE_COLOR RGB1555(1, 16, 24, 31)
+
+#define ORDER_SYSTEM_CLIP_COORDS_INDEX 0
+#define ORDER_LOCAL_COORDS_INDEX       1
+#define ORDER_POLYGON_INDEX            2
+#define ORDER_DRAW_END_INDEX           3
+#define ORDER_COUNT                    4
+
+
+#define CMDT_VTX_POLYGON_A 0
+#define CMDT_VTX_POLYGON_B 1
+#define CMDT_VTX_POLYGON_C 2
+#define CMDT_VTX_POLYGON_D 3
+
+
+static struct {
+	int8_t type;
+	int8_t draw_mode;
+	rgb1555_t colour;
+	int16_vec2_t points[4];
+} _primitive;
+
+
+static uint32_t _state = STATE_IDLE;
+
+
+static vdp1_cmdt_draw_mode_t _primitive_draw_modes[] = {
+	{
+		.raw = 0x0000,
+	},
+	{
+		.mesh_enable = true,
+	},
+	{
+		.cc_mode = 1,
+	},
+	{
+		.cc_mode = 2,
+	},
+	{
+		.cc_mode = 3,
+	},
+	{
+		.cc_mode = 4,
+	},
+	{
+		.cc_mode = 6,
+	},
+	{
+		.cc_mode = 7,
+	},
+};
+
+
+static vdp1_cmdt_list_t* _cmdt_list = NULL;
+static vdp1_vram_partitions_t _vdp1_vram_partitions;
+
+
+static char* _primitive_draw_mode_strings[] = {
+	"NORMAL",
+	"MESH",
+	"SHADOW"
+	"HALF-LUMINANCE",
+	"REPLACE/HALF-TRANSPARENT",
+	"GOURAUD",
+	"GOURAUD + HALF-LUMINANCE",
+	"GOURAUD + HALF-TRANSPARENT",
+};
+
+static char* _primitive_type_strings[] = {
+	"POLYLINE",
+	"POLYGON",
+	"LINE",
+};
+
 
 
 void user_init();
 
-
-
-extern const mesh_t mesh_torus;
-
-extern const mesh_t mesh_Cube;
-
-
-static size_t _texture_load(texture_t *textures, uint32_t slot, const picture_t *picture, vdp1_vram_t texture_base);
-static void _palette_load(uint16_t bank_256, uint16_t bank_16, const palette_t *palette);
-
-
 static uint32_t _frame_time_calculate(void);
 
 
+static void cmdt_list_init(void)
+{
+	static const int16_vec2_t system_clip_coord = {
+		SCREEN_WIDTH - 1,
+		SCREEN_HEIGHT - 1,
+	};
+	
+	_cmdt_list = vdp1_cmdt_list_alloc(ORDER_COUNT);
+	
+	(void)memset(&_cmdt_list->cmdts[0], 0x00, sizeof(vdp1_cmdt_t) * ORDER_COUNT);
+	
+	_cmdt_list->count = ORDER_COUNT;
+	
+	vdp1_cmdt_t* cmdts;
+	cmdts = &_cmdt_list->cmdts[0];
+	
+	vdp1_cmdt_system_clip_coord_set(&cmdts[ORDER_SYSTEM_CLIP_COORDS_INDEX]);
+	vdp1_cmdt_vtx_system_clip_coord_set(&cmdts[ORDER_SYSTEM_CLIP_COORDS_INDEX], system_clip_coord);
+	
+	vdp1_cmdt_end_set(&cmdts[ORDER_DRAW_END_INDEX]);
+}
 
-static vdp1_gouraud_table_t _pool_shading_tables[CONFIG_MIC3D_CMDT_COUNT] __aligned(16);
-static vdp1_gouraud_table_t _pool_shading_tables2[512] __aligned(16);
+
+static void primitive_init(void)
+{
+	static const int16_vec2_t local_coord_centre = {
+		(SCREEN_WIDTH / 2) - PRIMITIVE_HALF_WIDTH - 1,
+		(SCREEN_HEIGHT / 2) - PRIMITIVE_HALF_HEIGHT - 1
+	};
+	
+	_primitive.type = PRIMITIVE_TYPE_POLYGON;
+	_primitive.draw_mode = PRIMITIVE_DRAW_MODE_NORMAL;
+	
+	_primitive.colour = PRIMITIVE_COLOR;
+	
+	_primitive.points[0].x = 0;
+	_primitive.points[0].y = PRIMITIVE_HEIGHT - 1;
+	
+	_primitive.points[1].x = PRIMITIVE_WIDTH - 1;
+	_primitive.points[1].y = PRIMITIVE_HEIGHT - 1;
+	
+	_primitive.points[2].x = PRIMITIVE_WIDTH - 1;
+	_primitive.points[2].y = 0;
+	
+	_primitive.points[3].x = 0;
+	_primitive.points[3].y = 0;
+	
+	vdp1_cmdt_t* cmdt_local_coords;
+	cmdt_local_coords = &_cmdt_list->cmdts[ORDER_LOCAL_COORDS_INDEX];
+	
+	vdp1_cmdt_local_coord_set(cmdt_local_coords);
+	vdp1_cmdt_vtx_local_coord_set(cmdt_local_coords, local_coord_centre);
+	
+	vdp1_cmdt_t* cmdt_polygon;
+	cmdt_polygon = &_cmdt_list->cmdts[ORDER_POLYGON_INDEX];
+	
+	vdp1_gouraud_table_t* gouraud_base;
+	gouraud_base = _vdp1_vram_partitions.gouraud_base;
+	
+	gouraud_base->colors[0] = RGB1555(1, 31, 0, 0);
+	gouraud_base->colors[1] = RGB1555(1, 0, 31, 0);
+	gouraud_base->colors[2] = RGB1555(1, 0, 0, 31);
+	gouraud_base->colors[3] = RGB1555(1, 31, 31, 31);
+	
+	
+	vdp1_cmdt_polyline_set(cmdt_polygon);
+	vdp1_cmdt_colour_set(cmdt_polygon, _primitive.colour);
+	vdp1_cmdt_draw_mode_set(cmdt_polygon, _primitive_draw_modes[_primitive.draw_mode]);
+	vdp1_cmdt_vtx_set(cmdt_polygon, &_primitive.points[0]);
+	
+	//assert(cmdt_polygon->cmd_draw_mode.mesh_enable != true);
+	
+	vdp1_cmdt_gouraud_base_set(cmdt_polygon, (uint32_t)gouraud_base);
+	
+}
 
 
-static sort_list_t _sort_list[512] __aligned(4);
+const uint16_t mask_pressed_buttons = 
+	PERIPHERAL_DIGITAL_X |
+	PERIPHERAL_DIGITAL_Y |
+	PERIPHERAL_DIGITAL_B |
+	PERIPHERAL_DIGITAL_A;
 
+const uint16_t mask_pressed_type = 
+	PERIPHERAL_DIGITAL_LEFT |
+	PERIPHERAL_DIGITAL_RIGHT;
+	
 
-static smpc_peripheral_digital_t _digital;
-
-
-static const char *_error_message =
-    "[1;4H[2K[11CThe extended RAM\n"
-    "[11Ccartridge is not\n"
-    "[11Cinserted properly.\n"
-    "\n"
-    "[11CPlease turn off\n"
-    "[11Cpower and re-insert\n"
-    "[11Cthe extended RAM\n"
-    "[11Ccartridge.\n";
+const uint16_t mask_pressed_draw_mode = 
+	PERIPHERAL_DIGITAL_UP |
+	PERIPHERAL_DIGITAL_DOWN;
 
 
 int main(void)
 {
 	Window_Init();
-	
+		
 	gamewindow_t gw;
-	gw.width = SCREEN_WIDTH;
-	gw.height = SCREEN_HEIGHT;
-	gw.scale = SCREEN_SCALE;
+	gw.width = 320 * 3;
+	gw.height = 224 * 3;
+	gw.displayFramerate = true;
+	gw.win.flags.integerScale = 1;
+	gw.win.flags.fullscreen = false;
+	gw.win.flags.vsync = false;
 	
 	GameWindow_Open(&gw, "Ringworlds Stage 2");
-		
-	//user_init();
 	
-	// LOAD SSV FILE
-	
-	cdfs_config_default_set();
-	
-	CD_InitFileList();
-
-
-	void* loadArea = LWRAM(0x00000000);
-	uint32_t* loadInt = (uint32_t*)loadArea;
-	*loadInt = 0xF1F1001F;
-
-	CD_LoadFile("SNC.SSV", loadArea);
-	//CD_LoadFile("bossfrost/bossfrost.smf", loadArea);
-	
-	
-	// END LOAD SSV FILE
-	
-	ssv_mesh_t testmesh;
-	SSV_LoadFromMemory(&testmesh, loadArea);
-	
-	dbgio_init();
-	dbgio_dev_default_init(DBGIO_DEV_VDP2_ASYNC);
-	dbgio_dev_font_load();
-	
-
-	
-	
-	/*
-	 * //disabled until I figure out why it can't detect the cart in mednafen
-	uint32_t ram_id;
-	ram_id = dram_cart_id_get();
-	if(ram_id != DRAM_CART_ID_4MIB)
-	{
-		dbgio_puts(_error_message);
-		dbgio_printf("Cart ID: %d", ram_id);
-		dbgio_flush();
-		vdp2_sync();
-		vdp2_sync_wait();
-		abort();
-	}
-	*/
-	
-
-	vdp1_vram_partitions_t vdp1_vram_partitions;
-
-	vdp1_vram_partitions_get(&vdp1_vram_partitions);
-
-	mic3d_init(&_workarea);
-	render_sort_depth_set(_sort_list, 512);
-
-	//Init sonic
-	char_sonic_t sonic;
-	sonic.spatial.position = (fix16_vec3_t){ 0, FIX16(0), FIX16(-40) };
-	sonic.spatial.velocity = (fix16_vec3_t){ 0, 0, 0 };
-	sonic.rot = 0;
-	sonic.mesh.pMesh = &mesh_Cube;
-
-
-	light_gst_set(_pool_shading_tables,
-		CONFIG_MIC3D_CMDT_COUNT,
-		(vdp1_vram_t)(vdp1_vram_partitions.gouraud_base + 512));
-
-	vdp1_vram_t texture_base;
-	texture_base = (vdp1_vram_t)vdp1_vram_partitions.texture_base;
-
-	
-
-	camera_t camera;
-
-	camera.position.x = FIX16( 0.0);
-	camera.position.y = FIX16( 0.0);
-	camera.position.z = FIX16( 10.0);
-
-	camera.target.x = FIX16(0.0);
-	camera.target.y = FIX16(0.0);
-	camera.target.z = FIX16(0.0);
-
-	camera.up.x = FIX16(0.0);
-	camera.up.y = FIX16(1.0);
-	camera.up.z = FIX16(0.0);
-
-	camera_lookat(&camera);
-
-
-	for (uint32_t i = 0; i < 512; i++) {
-			const rgb1555_t color = RGB1555(1,
-											fix16_int32_to(fix16_int32_from(i * 31) / 512U),
-											fix16_int32_to(fix16_int32_from(i * 31) / 512U),
-											fix16_int32_to(fix16_int32_from(i * 31) / 512U));
-
-			_pool_shading_tables2[i].colors[0] = color;
-			_pool_shading_tables2[i].colors[1] = color;
-			_pool_shading_tables2[i].colors[2] = color;
-			_pool_shading_tables2[i].colors[3] = color;
-	}
-
-	gst_set((vdp1_vram_t)vdp1_vram_partitions.gouraud_base);
-	gst_put(_pool_shading_tables2, 512);
-	gst_unset();
-
-	/* Set up a command table for insertion */
-	vdp1_cmdt_t cmdt_polygon;
-	vdp1_cmdt_polygon_set(&cmdt_polygon);
-	vdp1_cmdt_draw_mode_t polygon_draw_mode;
-	polygon_draw_mode.raw = 0x0000;
-	vdp1_cmdt_draw_mode_set(&cmdt_polygon, polygon_draw_mode);
-	
-	
-	
-	fix16_mat43_t ssv_world;
-	fix16_mat33_identity(&ssv_world.rotation);
-	fix16_vec3_zero(&ssv_world.translation);
-	ssv_world.translation.z = FIX16(-10);
-	
-	
-	
-	int32_t frame_counter = 0;
-	
-	PRIMITIVE testPrim = {
-		.zSort = 0,
-		.flags = { 
-			.draw_mesh = false, 
-			.draw_paletted = false, 
-			.highSpeedShrink = false, 
-			.textureID = 0,
-			.use_texture = false,
-		},
-		.v[0] = { { 0, 0 }, { 0, 0 }, { 255, 255, 255 } },
-		.v[1] = { { 150, 0 }, { 255, 0 }, { 0, 0, 0 } }, 
-		.v[2] = { { 150, 10 }, { 255, 255 }, { 0, 0, 0 } },
-		.v[3] = { { 10, 10 }, { 0, 255 }, { 255, 255, 255 } },
+	int16_vec2_t res = {
+		.x = 320,
+		.y = 224,
 	};
 	
-	fix16_vec3_t pos = { 0, 0, 0 };
+	Window_SetInternalResolution(&gw.win, res);
+	
+	user_init();
 
-	int loop = 1;
+	dbgio_init();
+	dbgio_dev_default_init(DBGIO_DEV_VDP2);
+	dbgio_dev_font_load();
+
+	cmdt_list_init();
+	primitive_init();
+
+
+	smpc_peripheral_digital_t digital;
+
+		
 	while(GameWindow_HandleEvents()) 
-	//while(loop)
 	{
-		loop = 0;
 		smpc_peripheral_process();
-		smpc_peripheral_digital_port(1, &_digital);
+		smpc_peripheral_digital_port(1, &digital);
+
+		uint32_t vertex_index = CMDT_VTX_POLYGON_A;
 		
-		/*
-		 * Held only fires once per hold action, so use pressed when checking each frame
-		 */
-		if((_digital.pressed & PERIPHERAL_DIGITAL_LEFT) != 0) 
+		_state = STATE_IDLE;
+		
+		const uint16_t pressed_state = digital.pressed.raw;
+		const uint16_t held_state = digital.held.raw;
+		
+		if((pressed_state & mask_pressed_buttons) != 0x0000)
 		{
-			pos.x -= FIX16(0.1);
-			//printf("moving left\n");
+			_state = STATE_VERTEX_SELECT;
+		}
+		else if((pressed_state & mask_pressed_type) != 0x0000)
+		{
+			_state = STATE_TYPE_SET;
+		}
+		else if((pressed_state & mask_pressed_draw_mode) != 0x0000)
+		{
+			_state = STATE_DRAW_MODE_SET;
+		}
+		else if((pressed_state & PERIPHERAL_DIGITAL_START) != 0x0000)
+		{
+			_state = STATE_VERTEX_RESET;
 		}
 		
-		if((_digital.pressed & PERIPHERAL_DIGITAL_RIGHT) != 0) 
+		switch(_state)
 		{
-			pos.x += FIX16(0.1);
-			//printf("moving right\n");
+			case STATE_VERTEX_RESET:
+				primitive_init();
+				break;
+			case STATE_TYPE_SET:
+				if((held_state & PERIPHERAL_DIGITAL_LEFT) != 0x0000)
+				{
+					_primitive.type--;
+					if(_primitive.type < 0)
+					{
+						_primitive.type = PRIMITIVE_TYPE_COUNT - 1;
+					}
+				}
+				else if((held_state & PERIPHERAL_DIGITAL_RIGHT) != 0x000)
+				{
+					_primitive.type++;
+					if(_primitive.type >= PRIMITIVE_TYPE_COUNT)
+					{
+						_primitive.type = 0;
+					}
+				}
+				break;
+			case STATE_DRAW_MODE_SET:
+				if((held_state & PERIPHERAL_DIGITAL_UP) != 0x0000)
+				{
+					_primitive.draw_mode--;
+					if(_primitive.draw_mode < 0)
+					{
+						_primitive.draw_mode = PRIMITIVE_DRAW_MODE_COUNT - 1;
+					}
+				}
+				else if((held_state & PERIPHERAL_DIGITAL_DOWN) != 0x0000)
+				{
+					_primitive.draw_mode++;
+					if(_primitive.draw_mode >= PRIMITIVE_DRAW_MODE_COUNT)
+					{
+						_primitive.draw_mode = 0;
+					}
+				}
+				break;
+			case STATE_VERTEX_SELECT:
+				if((pressed_state & PERIPHERAL_DIGITAL_X) != 0x0000)
+				{
+					vertex_index = CMDT_VTX_POLYGON_D;
+				}
+				else if((pressed_state & PERIPHERAL_DIGITAL_Y) != 0x0000)
+				{
+					vertex_index = CMDT_VTX_POLYGON_C;
+				}
+				else if((pressed_state & PERIPHERAL_DIGITAL_B) != 0x0000)
+				{
+					vertex_index = CMDT_VTX_POLYGON_B;
+				}
+				else if((pressed_state & PERIPHERAL_DIGITAL_A) != 0x0000)
+				{
+					vertex_index = CMDT_VTX_POLYGON_A;
+				}
+				
+				if((pressed_state & PERIPHERAL_DIGITAL_LEFT) != 0x0000)
+				{
+					_primitive.points[vertex_index].x--;
+				}
+				else if((pressed_state & PERIPHERAL_DIGITAL_RIGHT) != 0x0000)
+				{
+					_primitive.points[vertex_index].x++;
+				}
+				
+				if((pressed_state & PERIPHERAL_DIGITAL_UP) != 0x0000)
+				{
+					_primitive.points[vertex_index].y--;
+				}
+				else if((pressed_state & PERIPHERAL_DIGITAL_DOWN) != 0x0000)
+				{
+					_primitive.points[vertex_index].y++;
+				}
+				break;
+		}
+
+		vdp1_cmdt_t* cmdt_polygon;
+		cmdt_polygon = &_cmdt_list->cmdts[ORDER_POLYGON_INDEX];
+		
+		switch(_primitive.type)
+		{
+			case PRIMITIVE_TYPE_POLYLINE:
+				vdp1_cmdt_polyline_set(cmdt_polygon);
+				break;
+			case PRIMITIVE_TYPE_POLYGON:
+				vdp1_cmdt_polygon_set(cmdt_polygon);
+				break;
+			case PRIMITIVE_TYPE_LINE:
+				vdp1_cmdt_line_set(cmdt_polygon);
+				break;
 		}
 		
-		if((_digital.pressed & PERIPHERAL_DIGITAL_UP) != 0) 
-		{
-			pos.z -= FIX16(0.1);
-			//printf("moving up\n");
-		}
 		
-		if((_digital.pressed & PERIPHERAL_DIGITAL_DOWN) != 0) 
-		{
-			pos.z += FIX16(0.1);
-			//printf("moving down\n");
-		}
-
-		if((_digital.pressed & PERIPHERAL_DIGITAL_L) != 0) 
-		{
-			pos.y += FIX16(0.1);
-			//printf("moving down\n");
-		}
-		if((_digital.pressed & PERIPHERAL_DIGITAL_R) != 0) 
-		{
-			pos.y -= FIX16(0.1);
-			//printf("moving down\n");
-		}		
-		
-		
-		fix16_vec3_add(&sonic.spatial.position, &pos, &sonic.spatial.position); 
-		
-		fix16_vec3_zero(&pos);
-		
-		Sonic_Update(&sonic);
-		
-		char sonicPosBuffer[64];
-		//fix16_vec3_str(&sonic.spatial.position, &sonicPosBuffer, 3);
-		//printf("%s\n", sonicPosBuffer);
-
-		/* Call this before rendering */
-		render_start();
-		
-		render_enable(RENDER_FLAGS_LIGHTING);
-		//Sonic_Draw(&sonic);
-		
-		render_disable(RENDER_FLAGS_LIGHTING);
-		
-		SSV_DrawMeshAnim(&testmesh, &sonic.mesh.matrix, 0);
-		
-		PRIMITIVE testPrim3 = testPrim;
-
-		
-		for(int i = 0; i < 4; i++)
-		{
-			testPrim3.v[i].pos.x += pos.x / 6553;
-			testPrim3.v[i].pos.y += pos.z / 6553;
-		}
-		
-		
-		//DisplayList_VDP1_AddPrimitive(&testPrim);
-		//DisplayList_VDP1_AddPrimitive(&testPrim3);
-		
-
-		/* End of rendering */
-		render_end();
-
-		vdp1_sync_render();
-		vdp1_sync();
-		vdp1_sync_wait();
-		
-		uint32_t frameT;
-		frameT = _frame_time_calculate();
-		
-		char fixed[16];
-		//fix16_str(frameT, fixed, 7);
-		
-		dbgio_printf("[H[2JFrame Counter: %d\n", frame_counter);
-		
-		dbgio_printf("%sms\n", fixed);
-		
-		dbgio_printf("LWRAM 0: %d\n", *(uint32_t*)loadArea);
-		
-		fix16_vec3_t dist;
-		fix16_vec3_sub(&camera.position, &sonic.spatial.position, &dist);
-		
-		char buffer[64];
-		fix16_vec3_str(&dist, buffer, 5);
-		dbgio_printf("Distance From Camera: %s\n", buffer);
-		
-
+		dbgio_printf("[H[2J"
+			"     type: %s\n"
+			"draw_mode: %s\n",
+			_primitive_type_strings[_primitive.type],
+			_primitive_draw_mode_strings[_primitive.draw_mode]);
+			
 		dbgio_flush();
 		
-		frame_counter += 1;
 		
+		vdp1_cmdt_draw_mode_set(cmdt_polygon, _primitive_draw_modes[_primitive.draw_mode]);
+		vdp1_cmdt_vtx_set(cmdt_polygon, &_primitive.points[0]);
+
+		vdp1_sync_cmdt_list_put(_cmdt_list, 0);
+		vdp1_sync_render();
+		vdp1_sync();
 		vdp2_sync();
-		
+		vdp2_sync_wait();
 		
 		GameWindow_Update(&gw);
+		
+		//break;
 	}
+	
 	
 	
 	GameWindow_Close(&gw);
@@ -347,23 +424,27 @@ static void _cpu_frt_ovi_handler(void)
 
 void user_init(void)
 {
-	vdp2_tvmd_display_res_set(VDP2_TVMD_INTERLACE_NONE, VDP2_TVMD_HORZ_NORMAL_B, VDP2_TVMD_VERT_224);
+	vdp2_tvmd_display_res_set(VDP2_TVMD_INTERLACE_NONE, VDP2_TVMD_HORZ_NORMAL_A, VDP2_TVMD_VERT_224);
 
 	vdp2_scrn_back_color_set(VDP2_VRAM_ADDR(3, 0x01FFFE), RGB1555(1, 0, 3, 15));
-	
+	vdp2_sprite_priority_set(0, 6);	
 
 	vdp1_sync_interval_set(-1);
 
-	vdp1_env_default_set();
 
-	vdp2_sprite_priority_set(0, 6);
+	vdp1_env_t env;
+	vdp1_env_default_init(&env);
+	
+	//env.erase_color = RGB1555(1, 0, 3, 15);
+
+	vdp1_env_set(&env);
+
+	vdp_sync_vblank_out_set(_vblank_out_handler, NULL);
+
 
 	vdp2_tvmd_display_set();
 	
-	vdp_sync_vblank_out_set(_vblank_out_handler, NULL);
-	
-	cpu_frt_init(CPU_FRT_CLOCK_DIV_32);
-	cpu_frt_ovi_set(_cpu_frt_ovi_handler);
+	vdp1_vram_partitions_get(&_vdp1_vram_partitions);
 
 	cd_block_init();
 	

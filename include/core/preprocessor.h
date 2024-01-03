@@ -13,18 +13,20 @@
 
 #define static_assert(e) _Static_assert(e, "Failed on " __FILE__ ": L" __XSTRING(__LINE__))
 
-#define min(a,b) \
+
+
+#define MIN(a,b) \
 	({ __typeof__ (a) _a = (a); \
 		__typeof__ (b) _b = (b); \
 		_a < _b ? _a : _b; })
 
-#define max(a,b) \
+#define MAX(a,b) \
 	({ __typeof__ (a) _a = (a); \
 		__typeof__ (b) _b = (b); \
 		_a > _b ? _a : _b; })
 
 
-#define clamp(x, y, z)                                                         \
+#define CLAMP(x, y, z)                                                         \
     __extension__ ({ __typeof__ (x) _x = (x);                                  \
        __typeof__ (y) _y = (y);                                                \
        __typeof__ (z) _z = (z);                                                \

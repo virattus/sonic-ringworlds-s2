@@ -13,10 +13,12 @@ SDL_GameController* sdl_pad[2] = { NULL, NULL };
 
 void smpc_peripheral_init()
 {
+	/* TODO fix whatever's causing this
 	if(SDL_GameControllerAddMappingsFromFile("../assets/gamecontrollerdb.txt"))
 	{
 		printf("Failed to load controller mappings: %s\n", SDL_GetError());
-	}	
+	}
+	*/	
 	
 	sdl_pad[0] = SDL_GameControllerOpen(0);
 	if(sdl_pad[0])
@@ -52,19 +54,19 @@ void Controller_UpdateSDLPad(uint8_t ID)
 	if(!sdl_pad[ID])
 		return;
 	
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_UP)) pad[ID].pressed |= PERIPHERAL_DIGITAL_UP;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_DOWN)) pad[ID].pressed |= PERIPHERAL_DIGITAL_DOWN;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_LEFT)) pad[ID].pressed |= PERIPHERAL_DIGITAL_LEFT;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) pad[ID].pressed |= PERIPHERAL_DIGITAL_RIGHT;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_UP)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_UP;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_DOWN)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_DOWN;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_LEFT)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_LEFT;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_RIGHT;
 	
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_START)) pad[ID].pressed |= PERIPHERAL_DIGITAL_START;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_START)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_START;
 	
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_A)) pad[ID].pressed |= PERIPHERAL_DIGITAL_A;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_B)) pad[ID].pressed |= PERIPHERAL_DIGITAL_B;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) pad[ID].pressed |= PERIPHERAL_DIGITAL_C;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_X)) pad[ID].pressed |= PERIPHERAL_DIGITAL_X;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_Y)) pad[ID].pressed |= PERIPHERAL_DIGITAL_Y;
-	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) pad[ID].pressed |= PERIPHERAL_DIGITAL_Z;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_A)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_A;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_B)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_B;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_C;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_X)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_X;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_Y)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_Y;
+	if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) pad[ID].pressed.raw |= PERIPHERAL_DIGITAL_Z;
 	
 	//if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_A)) pad[ID].pressed |= PAD_L;
 	//if(SDL_GameControllerGetButton(sdl_pad[ID], SDL_CONTROLLER_BUTTON_A)) pad[ID].pressed |= PAD_R;
@@ -74,8 +76,8 @@ void Controller_UpdateSDLPad(uint8_t ID)
 
 void smpc_peripheral_process()
 {	
-	pad[0].pressed = 0;
-	pad[1].pressed = 0;
+	pad[0].pressed.raw = 0;
+	pad[1].pressed.raw = 0;
 	
 	Controller_UpdateSDLPad(0);
 	Controller_UpdateSDLPad(1);
@@ -84,22 +86,22 @@ void smpc_peripheral_process()
 	SDL_PumpEvents();	
 	const uint8_t* keys = SDL_GetKeyboardState(NULL);
 	
-	if(keys[SDL_SCANCODE_W]) pad[0].pressed |= PERIPHERAL_DIGITAL_UP;
-	if(keys[SDL_SCANCODE_S]) pad[0].pressed |= PERIPHERAL_DIGITAL_DOWN;
-	if(keys[SDL_SCANCODE_A]) pad[0].pressed |= PERIPHERAL_DIGITAL_LEFT;
-	if(keys[SDL_SCANCODE_D]) pad[0].pressed |= PERIPHERAL_DIGITAL_RIGHT;
+	if(keys[SDL_SCANCODE_W]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_UP;
+	if(keys[SDL_SCANCODE_S]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_DOWN;
+	if(keys[SDL_SCANCODE_A]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_LEFT;
+	if(keys[SDL_SCANCODE_D]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_RIGHT;
 	
-	if(keys[SDL_SCANCODE_KP_1]) pad[0].pressed |= PERIPHERAL_DIGITAL_A;
-	if(keys[SDL_SCANCODE_KP_2]) pad[0].pressed |= PERIPHERAL_DIGITAL_B;
-	if(keys[SDL_SCANCODE_KP_3]) pad[0].pressed |= PERIPHERAL_DIGITAL_C;
-	if(keys[SDL_SCANCODE_KP_4]) pad[0].pressed |= PERIPHERAL_DIGITAL_X;
-	if(keys[SDL_SCANCODE_KP_5]) pad[0].pressed |= PERIPHERAL_DIGITAL_Y;
-	if(keys[SDL_SCANCODE_KP_6]) pad[0].pressed |= PERIPHERAL_DIGITAL_Z;
+	if(keys[SDL_SCANCODE_KP_1]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_A;
+	if(keys[SDL_SCANCODE_KP_2]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_B;
+	if(keys[SDL_SCANCODE_KP_3]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_C;
+	if(keys[SDL_SCANCODE_KP_4]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_X;
+	if(keys[SDL_SCANCODE_KP_5]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_Y;
+	if(keys[SDL_SCANCODE_KP_6]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_Z;
 	
-	if(keys[SDL_SCANCODE_RETURN]) pad[0].pressed |= PERIPHERAL_DIGITAL_START;
+	if(keys[SDL_SCANCODE_RETURN]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_START;
 	
-	if(keys[SDL_SCANCODE_KP_7]) pad[0].pressed |= PERIPHERAL_DIGITAL_L;
-	if(keys[SDL_SCANCODE_KP_9]) pad[0].pressed |= PERIPHERAL_DIGITAL_R;
+	if(keys[SDL_SCANCODE_KP_7]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_L;
+	if(keys[SDL_SCANCODE_KP_9]) pad[0].pressed.raw |= PERIPHERAL_DIGITAL_R;
 
 }
 

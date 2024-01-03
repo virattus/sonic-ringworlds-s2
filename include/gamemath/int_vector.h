@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 
+
 void int16_vec2_add(int16_vec2_t* v0, const int16_vec2_t* v1);
 void int32_vec2_add(int32_vec2_t* v0, const int16_vec2_t* v1);
 

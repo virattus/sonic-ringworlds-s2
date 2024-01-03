@@ -26,9 +26,28 @@ typedef struct _DigitalController
 #define PERIPHERAL_DIGITAL_DIRECTIONS   0xF000
 #define PERIPHERAL_DIGITAL_ALL          0xFFF8
 
-	uint16_t pressed;
-	uint16_t held;
-	uint16_t released;
+	union
+	{
+		struct 
+		{
+			unsigned int right :1;
+			unsigned int left :1;
+			unsigned int down :1;
+			unsigned int up :1;
+			unsigned int start :1;
+			unsigned int a :1;
+			unsigned int c :1;
+			unsigned int b :1;
+			unsigned int r :1;
+			unsigned int x :1;
+			unsigned int y :1;
+			unsigned int z :1;
+			unsigned int l :1; 
+		};
+		
+		uint16_t raw;
+		
+	} pressed, held, released;
 	
 } smpc_peripheral_digital_t;
 

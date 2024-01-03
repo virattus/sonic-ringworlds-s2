@@ -18,6 +18,11 @@
 #define FIX16_VEC3_INITIALIZER(x, y, z)	{ FIX16(x), FIX16(y), FIX16(z) }
 
 
+#define INT16_VEC2_INITIALIZER(x, y)		(int16_vec2_t){ (x), (y) }
+
+#define INT16_VEC3_INITIALIZER(x, y, z)		(int16_vec3_t){ (x), (y), (z) }
+
+
 typedef struct _VECTOR2
 {
 	int32_t x, y;

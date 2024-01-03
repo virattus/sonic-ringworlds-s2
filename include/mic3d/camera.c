@@ -4,7 +4,7 @@
 #include <gamemath/fix16_vector.h>
 #include <gamemath/matrix.h>
 #include <mic3d/state.h>
-#include <gfx/render/render.h>
+#include <mic3d/render.h>
 
 #include <assert.h>
 #include <stddef.h>

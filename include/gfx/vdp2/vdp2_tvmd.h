@@ -30,7 +30,7 @@ typedef enum vdp2_tvmd_vert
 {
     VDP2_TVMD_VERT_224 = 0,
     VDP2_TVMD_VERT_240 = 1,
-    VDP2_TVMD_VERT_256 = 2
+    //VDP2_TVMD_VERT_256 = 2 //Pal Only
     
 } vdp2_tvmd_vert_t;
 

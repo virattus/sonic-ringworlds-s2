@@ -9,6 +9,7 @@
 typedef enum vdp1_env_bpp
 {
 	VDP1_ENV_BPP_16 = 0,
+	VDP1_ENV_BPP_8 = 1,
 	
 } vdp1_env_bpp_t;
 
@@ -16,6 +17,7 @@ typedef enum vdp1_env_bpp
 typedef enum vdp1_env_rotation
 {
 	VDP1_ENV_ROTATION_0 = 0,
+	VDP1_ENV_ROTATION_90 = 1
 	
 } vdp1_env_rotation_t;
 
@@ -45,6 +47,8 @@ void vdp1_env_default_init(vdp1_env_t* env);
 vdp1_env_t* vdp1_env_get(void);
 void vdp1_env_default_set(void);
 void vdp1_env_set(const vdp1_env_t* env);
+
+
 
 
 #endif

@@ -6,7 +6,7 @@
 #include <gamemath/fix16_vector.h>
 #include <gamemath/mat33.h>
 #include <gamemath/mat43.h>
-#include <gfx/mesh.h>
+#include <mic3d/mesh.h>
 #include <gfx/vdp1/vdp1_cmdt.h>
 
 

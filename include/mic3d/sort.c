@@ -3,7 +3,7 @@
 
 #include <mic3d/state.h>
 //#include <gfx/render/workarea.h>
-#include <gfx/render/render.h>
+#include <mic3d/render.h>
 
 #include <assert.h>
 
@@ -59,7 +59,7 @@ void __sort_insert(uint32_t z)
 	
 	assert(sort->sort_lists_pool != NULL);
 	
-	sort->max_depth = max(z, sort->max_depth);
+	sort->max_depth = MAX(z, sort->max_depth);
 	
 	sort_list_t* const list_head = &sort->sort_lists_pool[z];
 	

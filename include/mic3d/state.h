@@ -2,16 +2,16 @@
 #define __FAKEYAUL_MIC3D_STATE_H__
 
 
-#include <gfx/light_processor.h>
-#include <gfx/render/render.h>
-#include <gfx/texture.h>
-#include <gamemath/matrix.h>
-#include <mic3d/sort.h>
-#include <mic3d/workarea.h>
+#include "mic3d.h"
 
 
 
+typedef struct _RENDER render_t;
+typedef struct _sort sort_t;
+typedef struct texturelist tlist_t;
+typedef struct LIGHT_NODE light_t;
 typedef struct gst gst_t;
+typedef struct mstack mstack_t;
 
 typedef struct perf perf_t;
 
@@ -29,7 +29,5 @@ typedef struct
 
 extern state_t __state;
 
-
-void mic3d_init(workarea_mic3d_t* workarea);
 
 #endif

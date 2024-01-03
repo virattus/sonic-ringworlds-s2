@@ -6,16 +6,17 @@
 #include <stdint.h>
 
 
-typedef struct _SORT_LIST
-{
-	uint16_t head;
-} sort_list_t;
-
 
 typedef struct _sort_single
 {
 	int16_t next_single;
 } sort_single_t;
+
+
+typedef struct _sort_list
+{
+	uint16_t head;
+} sort_list_t;
 
 
 typedef struct _sort

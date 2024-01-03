@@ -97,9 +97,9 @@ int32_t Collision_Sphere_AABB(col_sphere_t* s0, col_aabb_t* a1)
 	assert(s0);
 	assert(a1);
 	
-	fix16_t x = max(a1->min.x, min(s0->pos.x, a1->max.x));
-	fix16_t y = max(a1->min.y, min(s0->pos.y, a1->max.y));
-	fix16_t z = max(a1->min.z, min(s0->pos.z, a1->max.z));
+	fix16_t x = MAX(a1->min.x, MIN(s0->pos.x, a1->max.x));
+	fix16_t y = MAX(a1->min.y, MIN(s0->pos.y, a1->max.y));
+	fix16_t z = MAX(a1->min.z, MIN(s0->pos.z, a1->max.z));
 	
 	fix16_t distance = fix16_sqrt(	fix16_mul(x - s0->pos.x, x - s0->pos.x) +
 									fix16_mul(y - s0->pos.y, y - s0->pos.y) +

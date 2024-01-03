@@ -1,23 +1,30 @@
 #include <core/gamewindow.h>
 
 #include <core/timer.h>
+#include <gfx/vdp1/vdp1.h>
+#include <gfx/vdp1/vdp1_render.h>
 #include <gfx/vdp2/vdp2.h>
 
 
-int GameWindow_Open(gamewindow_t* win, const char* title)
+
+int GameWindow_Open(gamewindow_t* gw, const char* title)
 {
-	strcpy(win->title, title);
+	//Initialise VDP1 and 2 if they haven't already
+	VDP1_Init();
+	VDP2_Init();
 	
-	Window_Open(&win->gw, win->title, win->width, win->height, win->scale);
+	strcpy(gw->title, title);
+	
+	Window_Open(&gw->win, gw->title, gw->width, gw->height);
 
 	
 	return 1;
 }
 
 
-void GameWindow_Close(gamewindow_t* win)
+void GameWindow_Close(gamewindow_t* gw)
 {
-	Window_Close(&win->gw);
+	Window_Close(&gw->win);
 }
 
 
@@ -32,16 +39,21 @@ int GameWindow_HandleEvents()
 }
 
 
-void GameWindow_Update(gamewindow_t* win)
+void GameWindow_Update(gamewindow_t* gw)
 {
-	if(Timer_UpdateFPS())
+	
+	
+	if(gw->displayFramerate && Timer_UpdateFPS())
 	{
-		char newTitle[TITLE_MAX];
-		sprintf(newTitle, "%s (FPS: %d)", win->title, Timer_GetFPS());
-		Window_SetTitle(&win->gw, newTitle); 
+		char newTitle[GAMEWINDOW_TITLE_MAX];
+		sprintf(newTitle, "%s (FPS: %d)", gw->title, Timer_GetFPS());
+		Window_SetTitle(&gw->win, newTitle); 
 	}
 	
-	Window_ClearColour(&win->gw, 0xFFFF00FF);
-	const int16_vec2_t FramebufferDimensions = { win->width, win->height };
-	Window_BlitVRAM(&win->gw, VDP2_GetDisplayOutput(), &FramebufferDimensions);	
+	vdp2_state_t* vdp2State = _state_vdp2();
+	
+	
+	Window_BlitVRAM(&gw->win, VDP2_GetDisplayOutput());
+	
+	//printf("Starting frame rendering\n");
 }
