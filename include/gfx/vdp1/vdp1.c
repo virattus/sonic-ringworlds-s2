@@ -22,7 +22,7 @@ static VRAM TextureArea;
 static vdp1_state_t VDP1_ACTIVE_STATE = {
 	.flags = 0,
 	.frame_count = 0,
-	.framebufferDimensions = (int16_vec2_t){ 320, 240 },
+	.current_env = NULL,
 };
 
 
@@ -41,17 +41,19 @@ void VDP1_Init()
 	
 	assert(sizeof(vdp1_cmdt_t) == 32);
 	
+	__vdp1_env_init();
+	
 	vdp1_env_default_set();
 	
-	vdp1_env_t* env = vdp1_env_get();
+	assert(VDP1_ACTIVE_STATE.current_env != NULL);
 	
 	Framebuffers[0].Memory = NULL;
 	Framebuffers[0].Size = 0;
 	Framebuffers[1].Memory = NULL;
 	Framebuffers[1].Size = 0;
 	
-	VRAM_Init(&Framebuffers[0], VDP1_FRAMEBUFFER_SIZE, env->erase_color);
-	VRAM_Init(&Framebuffers[1], VDP1_FRAMEBUFFER_SIZE, env->erase_color);
+	VRAM_Init(&Framebuffers[0], VDP1_FRAMEBUFFER_SIZE, VDP1_ACTIVE_STATE.current_env->erase_color.raw);
+	VRAM_Init(&Framebuffers[1], VDP1_FRAMEBUFFER_SIZE, VDP1_ACTIVE_STATE.current_env->erase_color.raw);
 	
 	VRAM_Init(&TextureArea, VDP1_VRAM_SIZE, 0);		
 	
@@ -116,7 +118,7 @@ VRAM* VDP1_GetTextureBuffer()
 
 
 void VDP1_SwapBuffers()
-{
+{	
 	ActiveFramebuffer ^= 1;
 	
 	//TODO Probably take care of the cmdt buffers too

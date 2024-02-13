@@ -108,4 +108,6 @@ void render_sort_depth_set(sort_list_t* sort_list_buffer, uint16_t count);
 
 void _screen_points_swap(int16_vec2_t* screen_points, uint32_t i, uint32_t j);
 
+void _clip_flags_lrtb_calculate(const int16_vec2_t screen_point, clip_flags_t* clip_flag);
+
 #endif

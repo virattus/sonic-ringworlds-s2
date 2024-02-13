@@ -81,7 +81,6 @@ void vdp1_sync()
 	if(VDP1_IsRendering())
 	{
 		VDP1_WaitThreads();
-		VDP1_SwapBuffers();
 	}
 }
 

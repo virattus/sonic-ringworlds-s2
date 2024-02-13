@@ -11,7 +11,7 @@
 
 typedef struct gst 
 {
-    vdp1_vram_t vram_base;
+    void* vram_base;
     gst_slot_t slot_base;
 
     scu_dma_level_t dma_level;
@@ -23,10 +23,10 @@ gst_slot_t __gst_slot_calculate(gst_slot_t gst_slot);
 
 
 void __gst_init(void);
-void __gst_put(const vdp1_gouraud_table_t* gouraud_tables, vdp1_vram_t vram_base, uint32_t put_count);
+void __gst_put(const vdp1_gouraud_table_t* gouraud_tables, vdp1_vram_t vram_offset, uint32_t put_count);
 
 
-void gst_set(vdp1_vram_t vram_base);
+void gst_set(vdp1_vram_t vram_offset);
 void gst_unset(void);
 void gst_put(const vdp1_gouraud_table_t* gouraud_tables, uint32_t put_count);
 

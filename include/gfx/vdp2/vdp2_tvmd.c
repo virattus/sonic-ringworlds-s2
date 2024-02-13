@@ -2,6 +2,9 @@
 
 
 #include <gfx/vdp2/vdp2.h>
+#include <gfx/vdp1/vdp1_env.h>
+
+#include <assert.h>
 
 
 void vdp2_tvmd_display_set(void)
@@ -61,8 +64,18 @@ void vdp2_tvmd_display_res_set(vdp2_tvmd_interlace_t interlace, vdp2_tvmd_horz_t
 	}
 	
 	printf("Set VDP2 Resolution to %dx%d\n", _state->tv.resolution.x, _state->tv.resolution.y);
+		
 	
 	//TODO figure out how to signal to whatever reads VDP2's framebuffer that the resolution has changed
 	
 }
 
+
+void vdp2_tvmd_display_res_get(uint16_t* width, uint16_t* height)
+{
+	assert(width != NULL);
+	assert(height != NULL);
+	
+	*width = _state_vdp2()->tv.resolution.x;
+	*height = _state_vdp2()->tv.resolution.y;
+}

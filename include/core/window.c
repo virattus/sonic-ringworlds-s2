@@ -1,6 +1,5 @@
 #include <core/window.h>
 
-#include <core/controller.h>
 #include <gfx/vdp1/vdp1.h>
 #include <gfx/vdp2/vdp2.h>
 

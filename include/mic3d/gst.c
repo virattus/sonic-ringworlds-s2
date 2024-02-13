@@ -23,7 +23,7 @@ void __gst_init(void)
 
 
 /* TODO: figure out the correct math for the actual transfer */
-void __gst_put(const vdp1_gouraud_table_t* gouraud_tables, vdp1_vram_t vram_base, uint32_t put_count)
+void __gst_put(const vdp1_gouraud_table_t* gouraud_tables, vdp1_vram_t vram_offset, uint32_t put_count)
 {
 	//here we actually upload the data
 	if(put_count == 0)
@@ -33,22 +33,20 @@ void __gst_put(const vdp1_gouraud_table_t* gouraud_tables, vdp1_vram_t vram_base
 	
 	gst_t* const gst = __state.gst;
 	
-	//copy over gouraud_tables to vram_base position
-	
 	VRAM* ram = VDP1_GetTextureBuffer();
 	
 	//figure out exactly how these values should be interpreted
-	memcpy(ram->Memory + vram_base, gouraud_tables, put_count); 
+	memcpy(ram->Memory + vram_offset, gouraud_tables, put_count); 
 }
 
 
 
-void gst_set(vdp1_vram_t vram_base)
+void gst_set(vdp1_vram_t vram_offset)
 {
 	gst_t* const gst = __state.gst;
 	
-	gst->vram_base = vram_base;
-	gst->slot_base = vram_base >> 3;
+	gst->vram_base = vram_offset;
+	gst->slot_base = vram_offset >> 3;
 }
 
 

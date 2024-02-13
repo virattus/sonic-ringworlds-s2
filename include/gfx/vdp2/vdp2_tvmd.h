@@ -2,6 +2,10 @@
 #define __FAKEYAUL_VDP2_TVMD_H__
 
 
+#include <stdint.h>
+
+
+
 typedef enum vdp2_tvmd_interlace 
 {
     VDP2_TVMD_INTERLACE_NONE   = 0,
@@ -39,5 +43,7 @@ typedef enum vdp2_tvmd_vert
 void vdp2_tvmd_display_set(void);
 
 void vdp2_tvmd_display_res_set(vdp2_tvmd_interlace_t interlace, vdp2_tvmd_horz_t horizontal, vdp2_tvmd_vert_t vertical);
+void vdp2_tvmd_display_res_get(uint16_t* width, uint16_t* height);
+
 
 #endif

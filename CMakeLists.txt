@@ -15,6 +15,7 @@ find_package(SDL2_image REQUIRED SDL2_image)
 option(DEBUG_SHOWVRAM "Displays the contents of VDP1/2 vram" OFF)
 option(SOFTWARE_RASTER "Use software raster instead of OpenGL" ON)
 option(LITTLE_ENDIAN "Modifies reading of Saturn Big Endian files to swap for x86" ON)
+option(VDP2_MULTITHREADING "Enables multithreading for VDP2 software rendering" ON)
 
 file(GLOB_RECURSE SRCS src/*.c include/*.c thirdparty/*.c)
 
@@ -28,7 +29,7 @@ target_include_directories(RingworldStage2 PUBLIC "thirdparty/gl3w")
 
 target_link_libraries(RingworldStage2 PRIVATE SDL2 SDL2_image m)
 
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
@@ -44,6 +45,13 @@ endif()
 if(LITTLE_ENDIAN)
 set_target_properties(RingworldStage2 PROPERTIES COMPILE_DEFINITIONS "SSV_SWAP_ENDIAN=1")
 endif()
+
+if(VDP2_MULTITHREADING)
+set_target_properties(RingworldStage2 PROPERTIES COMPILE_DEFINITIONS "VDP2_MULTITHREADING=1")
+endif()
+
+#always gets compiled
+set_target_properties(RingworldStage2 PROPERTIES COMPILE_DEFINITIONS "PC_BUILD=1")
 
 
 

@@ -19,34 +19,34 @@
 #define SCREEN_HEIGHT 224
 
 
-#define STATE_IDLE (-1)
-#define STATE_TYPE_SET (0)
+#define STATE_IDLE 			(-1)
+#define STATE_TYPE_SET 		(0)
 #define STATE_DRAW_MODE_SET (1)
 #define STATE_VERTEX_SELECT (2)
-#define STATE_VERTEX_RESET (3)
+#define STATE_VERTEX_RESET 	(3)
 
 
-#define PRIMITIVE_TYPE_POLYLINE (0)
-#define PRIMITIVE_TYPE_POLYGON (1)
-#define PRIMITIVE_TYPE_LINE (2)
-#define PRIMITIVE_TYPE_COUNT (3)
+#define PRIMITIVE_TYPE_POLYLINE 	(0)
+#define PRIMITIVE_TYPE_POLYGON 		(1)
+#define PRIMITIVE_TYPE_LINE 		(2)
+#define PRIMITIVE_TYPE_COUNT 		(3)
 
-#define PRIMITIVE_DRAW_MODE_NORMAL			(0)
-#define PRIMITIVE_DRAW_MODE_MESH			(1)
-#define PRIMITIVE_DRAW_MODE_SHADOW			(2)
-#define PRIMITIVE_DRAW_MODE_HALF_LUMINANCE	(3)
-#define PRIMITIVE_DRAW_MODE_HALF_TRANSPARENT (4)
-#define PRIMITIVE_DRAW_MODE_GOURAUD_SHADING	(5)
-#define PRIMITIVE_DRAW_MODE_HALF_LUM		(6)
-#define PRIMITIVE_DRAW_MODE_HALF_TRANS		(7)
-#define PRIMITIVE_DRAW_MODE_COUNT 			(8)
+#define PRIMITIVE_DRAW_MODE_NORMAL				(0)
+#define PRIMITIVE_DRAW_MODE_MESH				(1)
+#define PRIMITIVE_DRAW_MODE_SHADOW				(2)
+#define PRIMITIVE_DRAW_MODE_HALF_LUMINANCE		(3)
+#define PRIMITIVE_DRAW_MODE_HALF_TRANSPARENT 	(4)
+#define PRIMITIVE_DRAW_MODE_GOURAUD_SHADING		(5)
+#define PRIMITIVE_DRAW_MODE_GOURAUD_HALF_LUM	(6)
+#define PRIMITIVE_DRAW_MODE_GOURAUD_HALF_TRANS	(7)
+#define PRIMITIVE_DRAW_MODE_COUNT 				(8)
 
-#define PRIMITIVE_WIDTH 32
-#define PRIMITIVE_HEIGHT 32
-#define PRIMITIVE_HALF_WIDTH (PRIMITIVE_WIDTH / 2)
-#define PRIMITIVE_HALF_HEIGHT (PRIMITIVE_HEIGHT / 2)
+#define PRIMITIVE_WIDTH 		32
+#define PRIMITIVE_HEIGHT 		32
+#define PRIMITIVE_HALF_WIDTH 	(PRIMITIVE_WIDTH / 2)
+#define PRIMITIVE_HALF_HEIGHT 	(PRIMITIVE_HEIGHT / 2)
 
-#define PRIMITIVE_COLOR RGB1555(1, 16, 24, 31)
+#define PRIMITIVE_COLOR RGB1555(1, 31, 31, 31)
 
 #define ORDER_SYSTEM_CLIP_COORDS_INDEX 0
 #define ORDER_LOCAL_COORDS_INDEX       1
@@ -113,6 +113,7 @@ static char* _primitive_draw_mode_strings[] = {
 	"GOURAUD",
 	"GOURAUD + HALF-LUMINANCE",
 	"GOURAUD + HALF-TRANSPARENT",
+	"This should not appear",
 };
 
 static char* _primitive_type_strings[] = {
@@ -126,6 +127,101 @@ static char* _primitive_type_strings[] = {
 void user_init();
 
 static uint32_t _frame_time_calculate(void);
+
+
+static void InitTilemap(void)
+{
+	for(int i = 0; i < TILEMAP_TILE_COUNT; i++)
+	{
+		test_tilemap.TileOffset[i] = i * 64;
+	}
+	
+	for(int i = 0; i < TILEMAP_DIMENSION; i++)
+	{
+		for(int j = 0; j < TILEMAP_DIMENSION; j++)
+		{
+			test_tilemap.TileMap[i][j] = 0;
+		}
+	}
+	
+	
+	test_tilemap.TileMapScroll.x = 0;
+	test_tilemap.TileMapScroll.y = 0;
+	
+	uint32_t* pixels = (uint32_t*)VDP2_GetTextureBuffer()->Memory;
+	
+	pixels[0] = 0xFFFFFFFF;
+	pixels[1] = 0xFFFFFFFF;
+	pixels[2] = 0xFFFFFFFF;
+	pixels[3] = 0;
+	pixels[4] = 0xFFFFFFFF;
+	pixels[5] = 0xFFFFFFFF;
+	pixels[6] = 0xFFFFFFFF;
+	pixels[7] = 0xFFFFFFFF;
+	
+	pixels[8] = 0xFFFFFFFF;
+	pixels[9] = 0xFFFFFFFF;
+	pixels[10] = 0;
+	pixels[11] = 0xFFFFFFFF;
+	pixels[12] = 0;
+	pixels[13] = 0xFFFFFFFF;
+	pixels[14] = 0xFFFFFFFF;
+	pixels[15] = 0xFFFFFFFF;
+	
+	pixels[16] = 0xFFFFFFFF;
+	pixels[17] = 0xFFFFFFFF;
+	pixels[18] = 0;
+	pixels[19] = 0xFFFFFFFF;
+	pixels[20] = 0;
+	pixels[21] = 0xFFFFFFFF;
+	pixels[22] = 0xFFFFFFFF;
+	pixels[23] = 0xFFFFFFFF;
+	
+	pixels[24] = 0xFFFFFFFF;
+	pixels[25] = 0;
+	pixels[26] = 0xFFFFFFFF;
+	pixels[27] = 0xFFFFFFFF;
+	pixels[28] = 0xFFFFFFFF;
+	pixels[29] = 0;
+	pixels[30] = 0xFFFFFFFF;
+	pixels[31] = 0xFFFFFFFF;
+	
+	pixels[32] = 0xFFFFFFFF;
+	pixels[33] = 0;
+	pixels[34] = 0;
+	pixels[35] = 0;
+	pixels[36] = 0;
+	pixels[37] = 0;
+	pixels[38] = 0xFFFFFFFF;
+	pixels[39] = 0xFFFFFFFF;
+	
+	pixels[40] = 0xFFFFFFFF;
+	pixels[41] = 0;
+	pixels[42] = 0xFFFFFFFF;
+	pixels[43] = 0xFFFFFFFF;
+	pixels[44] = 0xFFFFFFFF;
+	pixels[45] = 0;
+	pixels[46] = 0xFFFFFFFF;
+	pixels[47] = 0xFFFFFFFF;
+	
+	pixels[48] = 0;
+	pixels[49] = 0xFFFFFFFF;
+	pixels[50] = 0xFFFFFFFF;
+	pixels[51] = 0xFFFFFFFF;
+	pixels[52] = 0xFFFFFFFF;
+	pixels[53] = 0xFFFFFFFF;
+	pixels[54] = 0;
+	pixels[55] = 0xFFFFFFFF;
+	
+	pixels[56] = 0;
+	pixels[57] = 0xFFFFFFFF;
+	pixels[58] = 0xFFFFFFFF;
+	pixels[59] = 0xFFFFFFFF;
+	pixels[60] = 0xFFFFFFFF;
+	pixels[61] = 0xFFFFFFFF;
+	pixels[62] = 0;
+	pixels[63] = 0xFFFFFFFF;
+}
 
 
 static void cmdt_list_init(void)
@@ -159,7 +255,7 @@ static void primitive_init(void)
 	};
 	
 	_primitive.type = PRIMITIVE_TYPE_POLYGON;
-	_primitive.draw_mode = PRIMITIVE_DRAW_MODE_NORMAL;
+	_primitive.draw_mode = PRIMITIVE_DRAW_MODE_GOURAUD_SHADING;
 	
 	_primitive.colour = PRIMITIVE_COLOR;
 	
@@ -200,7 +296,9 @@ static void primitive_init(void)
 	
 	//assert(cmdt_polygon->cmd_draw_mode.mesh_enable != true);
 	
-	vdp1_cmdt_gouraud_base_set(cmdt_polygon, (uint32_t)gouraud_base);
+	//We use offsets instead of the actual position, original below
+	vdp1_cmdt_gouraud_base_set(cmdt_polygon, 0);
+	//vdp1_cmdt_gouraud_base_set(cmdt_polygon, (uint32_t)gouraud_base);
 	
 }
 
@@ -226,9 +324,10 @@ int main(void)
 	Window_Init();
 		
 	gamewindow_t gw;
-	gw.width = 320 * 3;
-	gw.height = 224 * 3;
+	gw.resolution.x = 352 * 3;
+	gw.resolution.y = 240 * 3;
 	gw.displayFramerate = true;
+	gw.limitFramerate = true;
 	gw.win.flags.integerScale = 1;
 	gw.win.flags.fullscreen = false;
 	gw.win.flags.vsync = false;
@@ -250,11 +349,21 @@ int main(void)
 
 	cmdt_list_init();
 	primitive_init();
+	
+	InitTilemap();
 
+	uint16_t width, height;
+	vdp2_tvmd_display_res_get(&width, &height);
+	
+	rgb1555_t* const backBuffer = malloc(sizeof(rgb1555_t) * height);
+	
+	
+	uint16_t buffer_count = 0;
+	uint16_t count = 0;
+	bool switch_buffer_count = false;
 
 	smpc_peripheral_digital_t digital;
 
-		
 	while(GameWindow_HandleEvents()) 
 	{
 		smpc_peripheral_process();
@@ -266,6 +375,9 @@ int main(void)
 		
 		const uint16_t pressed_state = digital.pressed.raw;
 		const uint16_t held_state = digital.held.raw;
+		
+		//printf("pressed state: %d\n", pressed_state);
+		//printf("held_state: %d\n", held_state);
 		
 		if((pressed_state & mask_pressed_buttons) != 0x0000)
 		{
@@ -388,9 +500,47 @@ int main(void)
 			
 		dbgio_flush();
 		
+		/*
+		printf(			"     type: %s\n"
+			"draw_mode: %s\n",
+			_primitive_type_strings[_primitive.type],
+			_primitive_draw_mode_strings[_primitive.draw_mode]);
+		
+		printf("Draw Mode Raw: %d\n", _primitive.draw_mode);
+		*/
 		
 		vdp1_cmdt_draw_mode_set(cmdt_polygon, _primitive_draw_modes[_primitive.draw_mode]);
 		vdp1_cmdt_vtx_set(cmdt_polygon, &_primitive.points[0]);
+
+
+		if(digital.held.button.a)
+		{
+			switch_buffer_count ^= true;
+		}
+		
+		
+		if(switch_buffer_count)
+		{
+			buffer_count = height;
+		}
+		else
+		{
+			buffer_count = 1;
+		}
+		
+		
+		vdp2_scrn_back_buffer_set(VDP2_VRAM_ADDR(1, 0), backBuffer, buffer_count);
+		vdp2_scrn_back_sync();
+		
+		
+		for(uint16_t i = 0; i < buffer_count; i++)
+		{
+			backBuffer[i] = RGB1555(1, i + count, i + count, i+ count);
+		}
+		
+		count++;
+
+
 
 		vdp1_sync_cmdt_list_put(_cmdt_list, 0);
 		vdp1_sync_render();
@@ -398,7 +548,7 @@ int main(void)
 		vdp2_sync();
 		vdp2_sync_wait();
 		
-		GameWindow_Update(&gw);
+		GameWindow_Update(&gw);		
 		
 		//break;
 	}
@@ -435,7 +585,7 @@ void user_init(void)
 	vdp1_env_t env;
 	vdp1_env_default_init(&env);
 	
-	//env.erase_color = RGB1555(1, 0, 3, 15);
+	env.erase_color = RGB1555(1, 0, 3, 15);
 
 	vdp1_env_set(&env);
 

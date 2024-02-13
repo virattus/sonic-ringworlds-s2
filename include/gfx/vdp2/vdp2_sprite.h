@@ -5,6 +5,10 @@
 #include <stdint.h>
 
 
+typedef uint32_t vdp2_sprite_type_t;
+
+
+
 typedef struct VDP2_SPRITE_0
 {
 	unsigned int pr:2; //Priority bits

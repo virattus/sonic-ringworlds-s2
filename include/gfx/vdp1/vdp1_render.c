@@ -17,7 +17,20 @@
 #define VDP1_CMDT_SIZE				32
 #define FRAMEBUFFER_BOUNDARY 		1024
 
-#define NUM_THREADS					4
+#define NUM_THREADS					1
+
+
+
+typedef struct VDP1_PRIM_STATE
+{
+	vdp1_cmdt_t* Cmdt;
+	vdp1_cmdt_t* NextCmdt;
+	vdp1_cmdt_t* SubroutineCaller;
+	int16_vec2_t LocalCoordinates;
+	int16_vec2_t ClipMin, ClipMax;
+	int16_vec2_t UserClipMin, UserClipMax;
+	
+} VDP1_PrimState_t;
 
 
 
@@ -25,16 +38,39 @@ static bool IsVDP1Rendering = false;
 
 static SDL_Thread* threads[NUM_THREADS];
 
-static int16_vec2_t localCoordinates = { 0, 0 };
 
-//used by jump mode for fucking jumping around
-static vdp1_cmdt_t* SubroutineCaller = NULL;
 
 
 static int32_t VDP1_VertexInBounds(Vertex_t* v)
 {
 	if((v->x < -FRAMEBUFFER_BOUNDARY || v->x > FRAMEBUFFER_BOUNDARY) ||
 		(v->y < -FRAMEBUFFER_BOUNDARY || v->y > FRAMEBUFFER_BOUNDARY))
+	{
+		return 0;
+	}
+	
+	return 1;
+}
+
+
+static int32_t VDP1_PolygonInBounds(Primitive_t* p)
+{
+	for(int i = 0; i < 4; i++)
+	{
+		if(!VDP1_VertexInBounds(&p->v[i]))
+		{
+			return 0;
+		}
+	}
+	
+	return 1;
+}
+
+
+static int32_t VDP1_LineInBounds(Primitive_t* p)
+{
+	if(!VDP1_VertexInBounds(&p->v[0]) || 
+		!VDP1_VertexInBounds(&p->v[1]))
 	{
 		return 0;
 	}
@@ -64,31 +100,27 @@ static void VDP1_SortVertical(Vertex_t* v0, Vertex_t* v1)
 }
 
 
-static int VDP1_DrawPrimitive(DrawState_t* state, Primitive_t* p)
-{	
-	//Make sure that we skip polys with absurd sizes
-	for(int i = 0; i < 4; i++)
-	{
-		p->v[i].x += localCoordinates.x;
-		p->v[i].y += localCoordinates.y;
-		
-		if(!VDP1_VertexInBounds(&p->v[i]))
-		{
-			printf("VDP_DrawPrimitive attempt to draw primitive that exceeds max size\n");
-			return 1;
-		}
-	}
-	
+static int VDP1_DrawPrimitive(const DrawState_t* state, VDP1_PrimState_t* primState, Primitive_t* p)
+{
 	switch(p->flags.DrawPrimType)
 	{
 		case DRAW_POLYGON:
-			DrawQuad(state, &p->flags, &p->v[0], &p->v[1], &p->v[2], &p->v[3]);
+			if(VDP1_PolygonInBounds(p))
+			{
+				DrawQuad(state, &p->flags, &p->v[0], &p->v[1], &p->v[2], &p->v[3]);
+			}
 			break;
 		case DRAW_LINE:
-			DrawLine(state, &p->flags, &p->v[0], &p->v[1]);
+			if(VDP1_LineInBounds(p))
+			{
+				DrawLine(state, &p->flags, &p->v[0], &p->v[1]);
+			}
 			break;
 		case DRAW_POLYLINE:
-			DrawPolyLine(state, &p->flags, &p->v[0], &p->v[1], &p->v[2], &p->v[3]);
+			if(VDP1_PolygonInBounds)
+			{
+				DrawPolyLine(state, &p->flags, &p->v[0], &p->v[1], &p->v[2], &p->v[3]);
+			}
 			break;
 		default:
 			assert(false);
@@ -99,69 +131,55 @@ static int VDP1_DrawPrimitive(DrawState_t* state, Primitive_t* p)
 }
 
 
-static void VDP1_SetPrimitiveGouraud(Primitive_t* p, uint16_t gst_slot, bool modifyValues)
+static void VDP1_SetPrimitiveGouraud(Primitive_t* p, uint16_t gst_slot)
 {
 	const vdp1_gouraud_table_t* gouraudTable = _state_vdp1()->vram_partitions.gouraud_base;
 	
 	for(int i = 0; i < 4; i++)
 	{
-		uint8_t r = p->v[i].r;
-		uint8_t g = p->v[i].g;
-		uint8_t b = p->v[i].b;
-		
-		if(modifyValues)
-		{
-			r = 16;
-			g = 16;
-			b = 16;
-		}
-		
-		p->v[i].r = CLAMP(r + gouraudTable[gst_slot].colors[i].r - 15, 0, 31);
-		p->v[i].g = CLAMP(g + gouraudTable[gst_slot].colors[i].r - 15, 0, 31);
-		p->v[i].b = CLAMP(b + gouraudTable[gst_slot].colors[i].r - 15, 0, 31);
-		
+		p->v[i].r = gouraudTable[gst_slot].colors[i].r;
+		p->v[i].g = gouraudTable[gst_slot].colors[i].g;
+		p->v[i].b = gouraudTable[gst_slot].colors[i].b;
 	}
-	
-	
 }
 
 
-static int32_t VDP1_GetNextCommand(const vdp1_cmdt_t* cmdt, vdp1_cmdt_t** nextCmdt)
+static int32_t VDP1_GetNextCommand(VDP1_PrimState_t* primState)
 {
-	assert(cmdt != NULL);
-	assert(nextCmdt != NULL);
+	assert(primState != NULL);
 	
 	const vdp1_cmdt_t* cmdt_base = _state_vdp1()->vram_partitions.cmdt_base;
 	
-	const uint16_t jumpSelect = (cmdt->cmd_ctrl & 0x7000) >> 12;
+	const uint16_t jumpSelect = (primState->Cmdt->cmd_ctrl & 0x7000) >> 12;
 
 	
 	if(jumpSelect == 0)
 	{
 		//Jump Next, just go to next command (+32 bytes)
-		*nextCmdt = (vdp1_cmdt_t*)(cmdt + 1);
+		primState->NextCmdt = (vdp1_cmdt_t*)(primState->Cmdt + 1);
 	}
 	else if(jumpSelect == 1)
 	{
 		//Jump assign, go straight to jumplink
-		uint16_t jumpLink = cmdt->cmd_link;
+		uint16_t jumpLink = primState->Cmdt->cmd_link;
 		
-		*nextCmdt = (vdp1_cmdt_t*)(cmdt_base + (jumpLink >> 5));
+		primState->NextCmdt = (vdp1_cmdt_t*)(cmdt_base + (jumpLink >> 5));
 	}
 	else if(jumpSelect == 2)
 	{
 		//Jump Call, subroutine call, find out what this is
-		SubroutineCaller = (vdp1_cmdt_t*)(cmdt + 1);
+		primState->SubroutineCaller = (vdp1_cmdt_t*)(primState->Cmdt + 1);
 		
-		uint16_t jumpLink = cmdt->cmd_link;
+		uint16_t jumpLink = primState->Cmdt->cmd_link;
 		
-		*nextCmdt = (vdp1_cmdt_t*)(cmdt_base + (jumpLink >> 5));
+		primState->NextCmdt = (vdp1_cmdt_t*)(cmdt_base + (jumpLink >> 5));
 	}
 	else if(jumpSelect == 3)
 	{
 		//Jump Return, subroutine return, jesus
+		assert(primState->SubroutineCaller != NULL);
 		
-		*nextCmdt = SubroutineCaller;
+		primState->NextCmdt = primState->SubroutineCaller; //Look up if this should be set to NULL afterwards
 	}
 	
 	if(jumpSelect & 0x4)
@@ -176,13 +194,17 @@ static int32_t VDP1_GetNextCommand(const vdp1_cmdt_t* cmdt, vdp1_cmdt_t** nextCm
 }
 
 
-static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_cmdt_t** nextCmdt)
+static uint32_t VDP1_DrawCmdt(const DrawState_t* state, VDP1_PrimState_t* primState)
 {
-	if(!VDP1_GetNextCommand(cmdt, nextCmdt))
+	if(!VDP1_GetNextCommand(primState))
 	{
 		//Skip drawing this primitive
 		return 1;
 	}
+	
+	
+	vdp1_cmdt_t* cmdt = primState->Cmdt;
+	
 	
 	uint8_t ctrl = cmdt->cmd_ctrl & 0x000F;
 
@@ -190,40 +212,40 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 	//Draw End Command
 	if(cmdt->cmd_ctrl == 0x8000)
 	{
-		printf("Draw End\n");
+		//printf("Draw End\n");
 		return 0;
 	}
 	//Set local coords
 	else if(ctrl == 0x0A)
 	{
-		printf("set local coords\n");
+		//printf("set local coords\n");
 		
-		localCoordinates.x = cmdt->cmd_xa;
-		localCoordinates.y = cmdt->cmd_ya;
+		primState->LocalCoordinates.x = cmdt->cmd_xa;
+		primState->LocalCoordinates.y = cmdt->cmd_ya;
 		
 		return 1;
 	}
 	//system clipping coordinate set
 	else if(ctrl == 0x09)
 	{
-		printf("set system clipping\n");
+		//printf("set system clipping\n");
 		
-		state->SystemClipMax.x = cmdt->cmd_xc;
-		state->SystemClipMax.y = cmdt->cmd_yc;
+		primState->ClipMax.x = cmdt->cmd_xc;
+		primState->ClipMax.y = cmdt->cmd_yc;
 		
 		return 1;
 	}
 	//user clipping coordinates
 	else if(ctrl == 0x08)
 	{
-		printf("user clipping coords\n");
+		//printf("user clipping coords\n");
 		
 		
-		state->UserClipMin.x = cmdt->cmd_xa;
-		state->UserClipMin.y = cmdt->cmd_ya;
+		primState->UserClipMin.x = cmdt->cmd_xa;
+		primState->UserClipMin.y = cmdt->cmd_ya;
 		
-		state->UserClipMax.x = cmdt->cmd_xc;
-		state->UserClipMax.y = cmdt->cmd_yc;
+		primState->UserClipMax.x = cmdt->cmd_xc;
+		primState->UserClipMax.y = cmdt->cmd_yc;
 		
 		return 1;
 	}
@@ -232,13 +254,26 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 	//Actual render primitives
 	Primitive_t prim;
 	
-	prim.flags.DrawPrimType = DRAW_POLYGON;
-	prim.flags.DrawMesh = cmdt->cmd_draw_mode.mesh_enable;
-	prim.flags.DrawGouraud = false;
-	prim.flags.DrawPaletted = false;
-	prim.flags.DrawTransparent = false;
-	prim.flags.UserClipParameters = false; //cmdt->cmd_draw_mode.user_clipping_enable;
+	prim.flags = (PrimitiveFlags_t){
+		.DrawPrimType = DRAW_POLYGON,
+		.ColourMode = cmdt->cmd_draw_mode.color_mode,
+		.DrawMesh = cmdt->cmd_draw_mode.mesh_enable,
+		.DrawTransparent = cmdt->cmd_draw_mode.cc_mode & 1,
+		.DrawHalfLuminance = cmdt->cmd_draw_mode.cc_mode & 2,
+		.DrawGouraud = cmdt->cmd_draw_mode.cc_mode & 4,
+		.IgnoreTextureTransparency = !(cmdt->cmd_draw_mode.trans_pixel_disable),
+		.ClipMin = state->SystemClipMin,
+		.ClipMax = state->SystemClipMax,
+	};
+
 	
+	if(cmdt->cmd_draw_mode.user_clipping_enable)
+	{
+		//Handle user clipping coordinates
+		//Remember that we need to adjust them so that we keep to the space allotted for multithreading
+		prim.flags.ClipMin = state->SystemClipMin;
+		prim.flags.ClipMax = state->SystemClipMax;
+	}
 	
 	
 	//normal sprite draw
@@ -247,29 +282,51 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 		printf("Draw normal sprite\n");
 		
 		prim.flags.DrawTextured = true;
+		prim.flags.TextureOffset = cmdt->cmd_srca;
+		prim.flags.TextureDimensions = cmdt->cmd_size;
 
 		int16_vec2_t dimensions = TEXTURE_SIZE_TO_VEC(cmdt->cmd_size);
 		
 		prim.v[0] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
+			.u = 0,
+			.v = 0,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 
 		//Probably use the character size for the dimensions
 		
 		prim.v[1] = (Vertex_t){
-			.x = cmdt->cmd_xa + dimensions.x,
-			.y = cmdt->cmd_ya,
+			.x = cmdt->cmd_xa + dimensions.x + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
+			.u = dimensions.x,
+			.v = 0,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[2] = (Vertex_t){
-			.x = cmdt->cmd_xa + dimensions.x,
-			.y = cmdt->cmd_ya + dimensions.y,
+			.x = cmdt->cmd_xa + dimensions.x + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + dimensions.y + primState->LocalCoordinates.y,
+			.u = dimensions.x,
+			.v = dimensions.y,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[3] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya + dimensions.y,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + dimensions.y + primState->LocalCoordinates.y,
+			.u = 0,
+			.v = dimensions.y,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 
 		
@@ -280,6 +337,12 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 		printf("Draw scaled sprite\n");
 		
 		prim.flags.DrawTextured = true;
+		prim.flags.TextureOffset = cmdt->cmd_srca;
+		prim.flags.TextureDimensions = cmdt->cmd_size;
+		
+		int16_vec2_t dimensions = TEXTURE_SIZE_TO_VEC(cmdt->cmd_size);
+		
+		
 
 		
 	}
@@ -289,75 +352,103 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 		printf("Draw distorted sprite\n");
 		
 		prim.flags.DrawTextured = true;
+		prim.flags.TextureOffset = cmdt->cmd_srca;
+		prim.flags.TextureDimensions = cmdt->cmd_size;
 
+		int16_vec2_t dimensions = TEXTURE_SIZE_TO_VEC(cmdt->cmd_size);
+
+		//TODO gotta handle the read direction
 		prim.v[0] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
+			.u = 0,
+			.v = 0,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[1] = (Vertex_t){
-			.x = cmdt->cmd_xb,
-			.y = cmdt->cmd_yb,
+			.x = cmdt->cmd_xb + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yb + primState->LocalCoordinates.y,
+			.u = dimensions.x,
+			.v = 0,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[2] = (Vertex_t){
-			.x = cmdt->cmd_xc,
-			.y = cmdt->cmd_yc,
+			.x = cmdt->cmd_xc + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yc + primState->LocalCoordinates.y,
+			.u = dimensions.x,
+			.v = dimensions.y,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[3] = (Vertex_t){
-			.x = cmdt->cmd_xd,
-			.y = cmdt->cmd_yd,
+			.x = cmdt->cmd_xd + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yd + primState->LocalCoordinates.y,
+			.u = 0,
+			.v = dimensions.y,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 	}
 	//non-textured polygon
 	else if(ctrl == 0x04)
 	{
-		printf("draw non-textured polygon\n");
+		//printf("draw non-textured polygon\n");
 		
 		prim.flags.DrawTextured = false;
 		
-		CVECTOR colour = RGB1555_to_CVector((rgb1555_t)cmdt->cmd_colr); 
+		rgb1555_t colour = (rgb1555_t)cmdt->cmd_colr;
+				
+		//store base colour in texture dimensions
+		prim.flags.TextureOffset = colour.raw;
 		
 		prim.v[0] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
 			.u = 1,
 			.v = 1,
-			.r = colour.r,
-			.g = colour.g,
-			.b = colour.b,
+			.r = 31,
+			.g = 31,
+			.b = 31,
 		};
 		
 		prim.v[1] = (Vertex_t){
-			.x = cmdt->cmd_xb,
-			.y = cmdt->cmd_yb,
+			.x = cmdt->cmd_xb + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yb + primState->LocalCoordinates.y,
 			.u = 1,
 			.v = 1,
-			.r = colour.r,
-			.g = colour.g,
-			.b = colour.b,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		prim.v[2] = (Vertex_t){
-			.x = cmdt->cmd_xc,
-			.y = cmdt->cmd_yc,
+			.x = cmdt->cmd_xc + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yc + primState->LocalCoordinates.y,
 			.u = 1,
 			.v = 1,
-			.r = colour.r,
-			.g = colour.g,
-			.b = colour.b,
+			.r = 31,
+			.g = 31,
+			.b = 31,
 		};
 		
 		prim.v[3] = (Vertex_t){
-			.x = cmdt->cmd_xd,
-			.y = cmdt->cmd_yd,
+			.x = cmdt->cmd_xd + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yd + primState->LocalCoordinates.y,
 			.u = 1,
 			.v = 1,
-			.r = colour.r,
-			.g = colour.g,
-			.b = colour.b,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 		
 		
@@ -365,84 +456,92 @@ static uint32_t VDP1_DrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, vdp1_
 	//non-textured polyline
 	else if(ctrl == 0x05)
 	{
-		printf("Draw non-textured polyline\n");
+		//printf("Draw non-textured polyline\n");
 		
 		prim.flags.DrawPrimType = DRAW_POLYLINE;
 		prim.flags.DrawTextured = false;
 		
+		rgb1555_t colour = (rgb1555_t)cmdt->cmd_colr;
+				
+		//store base colour in texture dimensions
+		prim.flags.TextureOffset = colour.raw;
+		
 		prim.v[0] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
 			.u = 1,
 			.v = 1,
-			.r = 255,
-			.g = 255,
-			.b = 255,
-		};
-		
-		prim.v[1] = (Vertex_t){
-			.x = cmdt->cmd_xb,
-			.y = cmdt->cmd_yb,
-			.u = 1,
-			.v = 1,
-			.r = 255,
-			.g = 255,
-			.b = 255,
-		};
-		
-		prim.v[2] = (Vertex_t){
-			.x = cmdt->cmd_xc,
-			.y = cmdt->cmd_yc,
-			.u = 1,
-			.v = 1,
-			.r = 255,
-			.g = 255,
-			.b = 255,
-		};
-		
-		prim.v[3] = (Vertex_t){
-			.x = cmdt->cmd_xd,
-			.y = cmdt->cmd_yd,
-			.u = 1,
-			.v = 1,
-			.r = 255,
-			.g = 255,
-			.b = 255,
-		};
-	}
-	//non-textured line
-	else if(ctrl == 0x06)
-	{
-		printf("Drawing non textured line\n");
-		
-		prim.flags.DrawPrimType = DRAW_LINE;
-		prim.flags.DrawTextured = false;
-		
-		rgba8888_t col = {
 			.r = 0,
 			.g = 0,
 			.b = 0,
 		};
 		
+		prim.v[1] = (Vertex_t){
+			.x = cmdt->cmd_xb + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yb + primState->LocalCoordinates.y,
+			.u = 1,
+			.v = 1,
+			.r = 0,
+			.g = 0,
+			.b = 0,
+		};
+		
+		prim.v[2] = (Vertex_t){
+			.x = cmdt->cmd_xc + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yc + primState->LocalCoordinates.y,
+			.u = 1,
+			.v = 1,
+			.r = 0,
+			.g = 0,
+			.b = 0,
+		};
+		
+		prim.v[3] = (Vertex_t){
+			.x = cmdt->cmd_xd + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yd + primState->LocalCoordinates.y,
+			.u = 1,
+			.v = 1,
+			.r = 0,
+			.g = 0,
+			.b = 0,
+		};
+	}
+	//non-textured line
+	else if(ctrl == 0x06)
+	{
+		//printf("Drawing non textured line\n");
+		
+		prim.flags.DrawPrimType = DRAW_LINE;
+		prim.flags.DrawTextured = false;
+		
+		rgb1555_t colour = (rgb1555_t)cmdt->cmd_colr;
+				
+		//store base colour in texture dimensions
+		prim.flags.TextureOffset = colour.raw;
+		
 		prim.v[0] = (Vertex_t){
-			.x = cmdt->cmd_xa,
-			.y = cmdt->cmd_ya,
-			.r = 255,
-			.g = 255,
-			.b = 255,
+			.x = cmdt->cmd_xa + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_ya + primState->LocalCoordinates.y,
+			.u = 1,
+			.v = 1,
+			.r = 0,
+			.g = 0,
+			.b = 0,
 		};
 
 		prim.v[1] = (Vertex_t){
-			.x = cmdt->cmd_xb,
-			.y = cmdt->cmd_yb,
-			.r = 255,
+			.x = cmdt->cmd_xb + primState->LocalCoordinates.x,
+			.y = cmdt->cmd_yb + primState->LocalCoordinates.y,
+			.u = 1,
+			.v = 1,
+			.r = 0,
 			.g = 0,
-			.b = 255,
+			.b = 0,
 		};
 	}
 	
 	
-	VDP1_DrawPrimitive(state, &prim);
+	VDP1_DrawPrimitive(state, primState, &prim);
 	
 	return 1;
 }
@@ -457,10 +556,20 @@ bool VDP1_IsRendering()
 
 static int VDP1_RenderThread(void* data)
 {
-	DrawState_t* state = (DrawState_t*)data;
+	const DrawState_t* state = (DrawState_t*)data;
 	
-	vdp1_cmdt_t* command = _state_vdp1()->vram_partitions.cmdt_base;
-	vdp1_cmdt_t* nextCommand = NULL;			
+	VDP1_PrimState_t primState = 
+	{
+		.Cmdt = _state_vdp1()->vram_partitions.cmdt_base,
+		.NextCmdt = NULL,
+		.SubroutineCaller = NULL,
+		.LocalCoordinates = { 0, 0 }, 
+		.ClipMin = state->SystemClipMin,
+		.ClipMax = state->SystemClipMax,
+		.UserClipMin = state->SystemClipMin,
+		.UserClipMax = state->SystemClipMax,
+	};
+			
 	
 	//We run a fixed size loop to ensure that there's no
 	//infinite loops in the cmdt jump logic
@@ -468,12 +577,12 @@ static int VDP1_RenderThread(void* data)
 	//to speed up rendering but for right now this should work
 	for(int i = 0; i < CMDT_MAX; i++)
 	{
-		if(!VDP1_DrawCmdt(state, command, &nextCommand))
+		if(!VDP1_DrawCmdt(state, &primState))
 		{
 			break;
 		}
 		
-		command = nextCommand;
+		primState.Cmdt = primState.NextCmdt;
 	}
 }
 
@@ -481,26 +590,31 @@ static int VDP1_RenderThread(void* data)
 //We should figure out the best way to structure this so that 
 //everything runs appropriately on the right cores
 void VDP1_Render()
-{
-	vdp1_state_t* vdp1State = _state_vdp1();
-	
+{		
 	if(IsVDP1Rendering)
 	{
 		return;
 	}
 
 	IsVDP1Rendering = true;
+	
+	vdp1_state_t* vdp1State = _state_vdp1();
+	vdp1_env_t* vdp1Env = vdp1State->current_env;
+	
+	//Clear screen, this might not be needed?
+	VRAM* drawBuffer = VDP1_GetDrawFramebuffer();
+	VRAM_Fill(drawBuffer, 0, drawBuffer->Size, 0);
 		
 	DrawState_t state = {
-		.buffer = VDP1_GetDrawFramebuffer(),
-		.bufferSize = vdp1State->framebufferDimensions,
+		.buffer = drawBuffer,
+		.bufferSize = vdp1Env->erase_points[1],
 		.textureBuffer = VDP1_GetTextureBuffer(),
-		.colDepth = COL_ARGB_1555,
-		.SystemClipMin = INT16_VEC2_INITIALIZER(0, 0),
-		.SystemClipMax = INT16_VEC2_INITIALIZER(vdp1State->framebufferDimensions.x - 1, vdp1State->framebufferDimensions.y - 1),
-		.UserClipMin = INT16_VEC2_INITIALIZER(0, 0),
-		.UserClipMax = INT16_VEC2_INITIALIZER(vdp1State->framebufferDimensions.x - 1, vdp1State->framebufferDimensions.y - 1),
+		.colDepth = COL_RGB_1555,
+		.SystemClipMin = vdp1Env->erase_points[0],
+		.SystemClipMax = vdp1Env->erase_points[1],
 	};
+	
+	//printf("VDP1 Screen Size: %dx%d\n", state.bufferSize.x, state.bufferSize.y);
 	
 	//We're segfaulting here in a weird way, I'm not gonna bother trying to figure it out any more
 	/*
@@ -511,8 +625,8 @@ void VDP1_Render()
 		//TODO: this should be done better to ensure that there's no 
 		//issues from rounding due to the vertical size of the framebuffer
 		//not being evenly divisible by the number of threads
-		state.SystemClipMin.y = (vdp1State->framebufferDimensions.y / NUM_THREADS) * i;
-		state.SystemClipMax.y = (vdp1State->framebufferDimensions.y / NUM_THREADS) * (i + 1);
+		state.SystemClipMin.y = (state.bufferSize.y / NUM_THREADS) * i;
+		state.SystemClipMax.y = (state.bufferSize.y / NUM_THREADS) * (i + 1);
 		
 		threads[i] = SDL_CreateThread(VDP1_RenderThread, "VDP1_Render_" + i, (void*)&state);
 	}
@@ -529,12 +643,12 @@ void VDP1_Render()
 
 void VDP1_WaitThreads()
 {
-	/*
+	
 	for(int i = 0; i < NUM_THREADS; i++)
 	{
 		SDL_WaitThread(threads[i], NULL);
 	}
-	*/
+	
 	
 	IsVDP1Rendering = false;
 }

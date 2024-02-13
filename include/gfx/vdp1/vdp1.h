@@ -31,8 +31,8 @@ typedef struct VDP1_STATE
 {
 	uint8_t flags;
 	uint32_t frame_count;
-	int16_vec2_t framebufferDimensions;
 	vdp1_vram_partitions_t vram_partitions;
+	vdp1_env_t* current_env;
 	
 } vdp1_state_t;
 

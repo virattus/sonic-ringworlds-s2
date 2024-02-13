@@ -76,25 +76,6 @@ typedef enum _vdp1_cmdt_char_flip
 typedef uint16_t vdp1_link_t;
 
 
-typedef vdp2_sprite_type_0_t vdp1_color_bank_type_0_t;
-typedef vdp2_sprite_type_1_t vdp1_color_bank_type_1_t;
-typedef vdp2_sprite_type_2_t vdp1_color_bank_type_2_t;
-typedef vdp2_sprite_type_3_t vdp1_color_bank_type_3_t;
-typedef vdp2_sprite_type_4_t vdp1_color_bank_type_4_t;
-typedef vdp2_sprite_type_5_t vdp1_color_bank_type_5_t;
-typedef vdp2_sprite_type_6_t vdp1_color_bank_type_6_t;
-typedef vdp2_sprite_type_7_t vdp1_color_bank_type_7_t;
-
-typedef vdp2_sprite_type_8_t vdp1_color_bank_type_8_t;
-typedef vdp2_sprite_type_9_t vdp1_color_bank_type_9_t;
-typedef vdp2_sprite_type_a_t vdp1_color_bank_type_a_t;
-typedef vdp2_sprite_type_b_t vdp1_color_bank_type_b_t;
-typedef vdp2_sprite_type_c_t vdp1_color_bank_type_c_t;
-typedef vdp2_sprite_type_d_t vdp1_color_bank_type_d_t;
-typedef vdp2_sprite_type_e_t vdp1_color_bank_type_e_t;
-typedef vdp2_sprite_type_f_t vdp1_color_bank_type_f_t;
-
-
 
 typedef enum _command_type
 {
@@ -355,19 +336,15 @@ void vdp1_cmdt_list_init(vdp1_cmdt_list_t* cmdt_list, vdp1_cmdt_t* cmdts);
 
 static inline void vdp1_cmdt_draw_mode_set(vdp1_cmdt_t* cmdt, vdp1_cmdt_draw_mode_t draw_mode)
 {
-	//This command is incorrect for little endian, it's assigning to mesh_enable, figure out what bits its actually trying to set
-	
 	//Straight from yaul
     /* Values 0x4, 0x5, 0x6 for comm indicate a non-textured command table,
      * and we want to set the bits 7 and 6 without branching */
 	
-	const uint16_t comm = (cmdt->cmd_ctrl & 0x0004);
-	const uint16_t pmod_bits = (comm << 5) | (comm << 4);
+	//const uint16_t comm = (cmdt->cmd_ctrl & 0x0004);
+	//const uint16_t pmod_bits = (comm << 5) | (comm << 4);
 	
 	//cmdt->cmd_pmod = pmod_bits | draw_mode.raw;
-	
-	//For now we'll just bypass the saturn specific code
-	cmdt->cmd_pmod |= draw_mode.raw;
+	cmdt->cmd_pmod = draw_mode.raw;
 }
 
 
@@ -390,21 +367,22 @@ static inline void vdp1_cmdt_color_bank_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_c
 }
 
 
+//16 colour VDP2 CRAM colour mode
 static inline void vdp1_cmdt_color_mode0_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_color_bank_t color_bank)
 {
 	cmdt->cmd_pmod &= 0xFFC7;
 	cmdt->cmd_colr = color_bank.raw & 0xFFF0;
 }
 
-//The fact that this one's so different makes me think this is for cluts
-static inline void vdp1_cmdt_color_mode1_set(vdp1_cmdt_t* cmdt, const vdp1_vram_t base)
+//16 colour CLUT mode
+static inline void vdp1_cmdt_color_mode1_set(vdp1_cmdt_t* cmdt, const vdp1_vram_t vram_offset)
 {
 	cmdt->cmd_pmod &= 0xFFC7;
 	cmdt->cmd_pmod |= 0x0008;
-	cmdt->cmd_colr = (uint16_t)((base >> 3) & 0xFFFF);
+	cmdt->cmd_colr = (uint16_t)((vram_offset >> 3) & 0xFFFF);
 }
 
-
+//64 colour VDP2 CRAM colour mode
 static inline void vdp1_cmdt_color_mode2_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_color_bank_t color_bank)
 {
 	cmdt->cmd_pmod &= 0xFFC7;
@@ -412,7 +390,7 @@ static inline void vdp1_cmdt_color_mode2_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_
 	cmdt->cmd_colr = color_bank.raw & 0xFFF0;
 }
 
-
+//128 colour VDP2 CRAM colour mode
 static inline void vdp1_cmdt_color_mode3_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_color_bank_t color_bank)
 {
 	cmdt->cmd_pmod &= 0xFFC7;
@@ -420,7 +398,7 @@ static inline void vdp1_cmdt_color_mode3_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_
 	cmdt->cmd_colr = color_bank.raw & 0xFF80;
 }
 
-
+//256 colour VDP2 CRAM colour mode
 static inline void vdp1_cmdt_color_mode4_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_color_bank_t color_bank)
 {
 	cmdt->cmd_pmod &= 0xFFC7;
@@ -429,9 +407,9 @@ static inline void vdp1_cmdt_color_mode4_set(vdp1_cmdt_t* cmdt, const vdp1_cmdt_
 }
 
 
-static inline void vdp1_cmdt_char_base_set(vdp1_cmdt_t* cmdt, vdp1_vram_t base)
+static inline void vdp1_cmdt_char_base_set(vdp1_cmdt_t* cmdt, vdp1_vram_t vram_offset)
 {
-	cmdt->cmd_srca = (base >> 3) & 0xFFFF;
+	cmdt->cmd_srca = (vram_offset >> 3) & 0xFFFF;
 }
 
 
@@ -495,9 +473,9 @@ static inline void vdp1_cmdt_vtx_set(vdp1_cmdt_t* cmdt, const int16_vec2_t* vert
 }
 
 
-static inline void vdp1_cmdt_gouraud_base_set(vdp1_cmdt_t* cmdt, vdp1_vram_t base)
+static inline void vdp1_cmdt_gouraud_base_set(vdp1_cmdt_t* cmdt, vdp1_vram_t vram_offset)
 {
-	cmdt->cmd_grda = (base >> 3) & 0xFFFF;
+	cmdt->cmd_grda = (vram_offset >> 3) & 0xFFFF;
 }
 
 
@@ -534,6 +512,12 @@ static inline void vdp1_cmdt_polyline_set(vdp1_cmdt_t* cmdt)
 static inline void vdp1_cmdt_line_set(vdp1_cmdt_t* cmdt)
 {
 	vdp1_cmdt_command_set(cmdt, VDP1_CMDT_LINE);
+}
+
+
+static inline void vdp1_cmdt_user_clip_coord_set(vdp1_cmdt_t* cmdt)
+{
+	vdp1_cmdt_command_set(cmdt, VDP1_CMDT_USER_CLIP_COORD);
 }
 
 

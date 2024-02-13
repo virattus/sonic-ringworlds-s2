@@ -3,11 +3,10 @@
 
 
 
-#include <gamemath/vector.h>
 #include <core/colour.h>
+#include <gamemath/vector.h>
 
 #include <libfixmath/fix16.h>
-#include <gamemath/vector.h>
 
 #include <stdbool.h>
 
@@ -38,18 +37,31 @@ typedef enum DRAW_PRIMITIVE_TYPE
 } PrimType_t;
 
 
+typedef enum DRAW_COLOUR_MODE
+{
+	COLOUR_BANK_16 = 0,
+	COLOUR_LOOKUP_16 = 1,
+	COLOUR_BANK_64 = 2,
+	COLOUR_BANK_128 = 3,
+	COLOUR_BANK_256 = 4,
+	COLOUR_RGB = 5,
+	
+} PrimColourMode_t;
+
+
 typedef struct DRAW_FLAGS
 {
 	PrimType_t DrawPrimType;
+	PrimColourMode_t ColourMode;
 	bool DrawMesh;
-	bool DrawPaletted;
 	bool DrawTransparent;
+	bool DrawHalfLuminance;
 	bool DrawGouraud;
 	bool DrawTextured;
-	bool UserClipParameters;
+	bool IgnoreTextureTransparency; //This is for paletted textures apparently?
 	uint16_t TextureOffset;
 	uint16_t TextureDimensions;
-	
+	int16_vec2_t ClipMin, ClipMax;
 	
 } PrimitiveFlags_t;
 

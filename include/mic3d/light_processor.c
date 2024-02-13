@@ -182,21 +182,21 @@ void __light_gst_put(void)
 		return;
 	}
 	
-	scu_dma_transfer(0, (void*)light->vram_base, light->gouraud_tables, light->gst_count * sizeof(vdp1_gouraud_table_t));
+	scu_dma_transfer(0, light->vram_base, light->gouraud_tables, light->gst_count * sizeof(vdp1_gouraud_table_t));
 	scu_dma_transfer_wait(0);
 	
 	light->gst_count = 0;
 }
 
 
-void light_gst_set(vdp1_gouraud_table_t* gouraud_tables, uint32_t count, vdp1_vram_t vram_base)
+void light_gst_set(vdp1_gouraud_table_t* gouraud_tables, uint32_t count, vdp1_vram_t vram_offset)
 {
 	light_t* const light = __state.light;
 	
 	light->gouraud_tables = gouraud_tables;
 	light->count = count;
-	light->vram_base = vram_base;
-	light->slot_base = vram_base >> 3;
+	light->vram_base = vram_offset;
+	light->slot_base = vram_offset >> 3;
 	
 	light->gst_count = 0;
 }

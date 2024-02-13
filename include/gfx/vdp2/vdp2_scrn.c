@@ -7,26 +7,6 @@
 
 
 
-void vdp2_scrn_back_color_set(vdp2_vram_t vram_ptr, rgb1555_t colour)
-{
-	_state_vdp2()->BackgroundColour = RGB1555_to_uint32(colour);
-	//_state_vdp2()->BackgroundColour = 0xFFFFFFFF;
-	
-	printf("Set VDP2 Background Colour to %d\n", _state_vdp2()->BackgroundColour);
-}
-
-
-void vdp2_scrn_back_buffer_set(vdp2_vram_t vram_ptr, const rgb1555_t* buffer, uint32_t count)
-{
-}
-
-
-void vdp2_scrn_back_sync(void)
-{
-}
-
-
-
 vdp2_scrn_disp_t vdp2_scrn_display_get(void)
 {
 }

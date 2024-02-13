@@ -21,27 +21,29 @@ void vdp1_vram_partitions_set(uint32_t cmdt_count, uint32_t texture_size, uint32
 	
 	const int32_t vram_size = VDP1_VRAM_SIZE - sizeof(vdp1_cmdt_t);
 	
-	int32_t cmdt_size;
-	cmdt_size = cmdt_count * sizeof(vdp1_cmdt_t);
+	int32_t cmdt_size = cmdt_count * sizeof(vdp1_cmdt_t);
 	
-	int32_t gouraud_size;
-	gouraud_size = gouraud_count * sizeof(vdp1_gouraud_table_t);
+	int32_t gouraud_size = gouraud_count * sizeof(vdp1_gouraud_table_t);
 	
-	int32_t clut_size;
-	clut_size = clut_count * sizeof(vdp1_clut_t);
+	int32_t clut_size = clut_count * sizeof(vdp1_clut_t);
 	
-	int32_t total_size;
-	total_size = cmdt_size + texture_size + gouraud_size + clut_size;
+	int32_t total_size = cmdt_size + texture_size + gouraud_size + clut_size;
 	
 	int32_t remaining_size = vram_size - total_size;
 	
-	//printf("remaining size: %d\n", remaining_size);
+	printf("VDP1 VRAM: %d CMDT: %d TEXTURE: %d GOURAUD: %d CLUT: %d REMAINING: %d\n", 
+		vram_size,
+		cmdt_size,
+		texture_size,
+		gouraud_size,
+		clut_size,
+		remaining_size);
 	
 	assert(remaining_size >= 0);
 
 	//It looks like the first cmdt should never be written to?
 	//Find out what's with this
-	vdp1_vram_t vram_offset = sizeof(vdp1_cmdt_t);
+	uint32_t vram_offset = sizeof(vdp1_cmdt_t);
 	
 	vdp1_vram_partitions_t* vram_partitions = &_state_vdp1()->vram_partitions;
 	
@@ -67,7 +69,7 @@ void vdp1_vram_partitions_set(uint32_t cmdt_count, uint32_t texture_size, uint32
 	}
 	else
 	{
-		vram_partitions->remaining_base = (vdp1_vram_t*)(VDP1_VRAM(vram_offset));
+		vram_partitions->remaining_base = VDP1_VRAM(vram_offset);
 	}
 	
 	vram_partitions->remaining_size = remaining_size;

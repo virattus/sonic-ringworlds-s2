@@ -10,7 +10,7 @@
 
 
 //returns 0 for ending drawing
-uint32_t VDP1_DecodeAndDrawCmdt(DrawState_t* state, const vdp1_cmdt_t* cmdt, uint16_t* nextCmdt);
+uint32_t VDP1_DecodeAndDrawCmdt(const DrawState_t* state, const vdp1_cmdt_t* cmdt, uint16_t* nextCmdt);
 
 
 bool VDP1_IsRendering();

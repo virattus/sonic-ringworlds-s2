@@ -102,7 +102,7 @@ static void _vdp1_init(void)
 
 	vdp1_cmdt_polygon_set(&cmdts[ORDER_CLEAR_POLYGON_INDEX]);
 	vdp1_cmdt_draw_mode_set(&cmdts[ORDER_CLEAR_POLYGON_INDEX], polygon_draw_mode);
-	vdp1_cmdt_colour_set(&cmdts[ORDER_CLEAR_POLYGON_INDEX], RGB1555(0, 0, 0, 0));
+	vdp1_cmdt_colour_set(&cmdts[ORDER_CLEAR_POLYGON_INDEX], RGB1555_INITIALIZER(0, 0, 0, 0));
 	vdp1_cmdt_vtx_set(&cmdts[ORDER_CLEAR_POLYGON_INDEX], polygon_points);
 	
 	vdp1_cmdt_end_set(&cmdts[ORDER_DRAW_END_INDEX]);

@@ -36,16 +36,6 @@ CVECTOR RGB1555_to_CVector(rgb1555_t col)
 */
 
 
-rgb1555_t Interpolate_RGB1555(rgb1555_t c0, rgb1555_t c1, uint16_t numerator, uint16_t denominator)
-{
-	return RGB1555(
-		1, 
-		(int16_interpolate((c0.r), (c1.r), numerator, denominator)),
-		(int16_interpolate((c0.g), (c1.g), numerator, denominator)),
-		(int16_interpolate((c0.b), (c1.b), numerator, denominator)));
-}
-
-
 /*
 uint32_t CVector_to_uint32(CVECTOR v0)
 {
@@ -75,7 +65,7 @@ rgb1555_t CVector_to_rgb1555(CVECTOR col)
 */
 
 
-
+/*
 CVECTOR Interpolate_CVECTOR(const CVECTOR* v0, const CVECTOR* v1, uint16_t numerator, uint16_t denominator)
 {	
 	return (CVECTOR){
@@ -157,3 +147,4 @@ CVECTOR CVECTOR_Average(const CVECTOR* v0, const CVECTOR* v1, uint8_t ratio)
 		.a = 255,
 	};
 }
+*/

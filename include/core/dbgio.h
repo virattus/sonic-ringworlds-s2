@@ -2,6 +2,10 @@
 #define __FAKEYAUL_DBGIO_H__
 
 
+#include <stddef.h>
+#include <stdint.h>
+
+
 
 typedef enum dbgio_dev 
 {
@@ -13,6 +17,28 @@ typedef enum dbgio_dev
     DBGIO_DEV_MEDNAFEN_DEBUG
     
 } dbgio_dev_t;
+
+#define DBGIO_DEV_COUNT		6
+
+
+typedef struct dbgio_font
+{
+	const uint8_t* cg;
+	size_t cg_size;
+	const uint16_t* pal;
+	size_t pal_size;
+	uint8_t fg_pal;
+	uint8_t bg_pal;
+
+} dbgio_font_t;
+
+
+typedef struct dbgio_vdp2_charmap
+{
+	uint16_t pnd;
+	
+} dbgio_vdp2_charmap_t;
+
 
 
 

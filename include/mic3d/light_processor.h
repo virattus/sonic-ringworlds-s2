@@ -26,7 +26,7 @@ typedef struct LIGHT_NODE
 	
 	vdp1_gouraud_table_t* gouraud_tables;
 	uint32_t count;
-	vdp1_vram_t vram_base;
+	void* vram_base;
 	uint16_t slot_base;
 	
 	//matrices

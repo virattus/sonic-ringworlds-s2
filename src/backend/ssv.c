@@ -159,7 +159,7 @@ void SSV_DrawMeshAnim(const ssv_mesh_t* mesh, const fix16_mat43_t* worldMatrix, 
 		.draw_mode.color_mode = VDP1_CMDT_CM_RGB_32768,
 		.control.command = COMMAND_TYPE_DISTORTED_SPRITE,
 		.control.link_type = LINK_TYPE_JUMP_ASSIGN,
-		.palette_data.base_color = RGB1555(1, 25, 3, 3),
+		.palette_data.base_color = RGB1555_INITIALIZER(1, 25, 3, 3),
 	};
 	
 	for(int i = 0; i < mesh->polygons_count; i++)

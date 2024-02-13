@@ -3,6 +3,7 @@
 
 
 #include <core/colour.h>
+#include <gfx/vdp2/vdp2_sprite.h>
 
 #include <stdint.h>
 
@@ -20,6 +21,7 @@
 
 typedef uint32_t vdp1_vram_t;
 
+
 typedef struct VDP1_CMDT vdp1_cmdt_t;
 
 
@@ -27,12 +29,56 @@ typedef struct VDP1_GOURAUD_TABLE
 {
 	rgb1555_t colors[4];
 	
-} vdp1_gouraud_table_t;
+} __aligned(8) vdp1_gouraud_table_t;
 
 
-typedef struct VDP1_CLUT
+typedef vdp2_sprite_type_0_t vdp1_color_bank_type_0_t;
+typedef vdp2_sprite_type_1_t vdp1_color_bank_type_1_t;
+typedef vdp2_sprite_type_2_t vdp1_color_bank_type_2_t;
+typedef vdp2_sprite_type_3_t vdp1_color_bank_type_3_t;
+typedef vdp2_sprite_type_4_t vdp1_color_bank_type_4_t;
+typedef vdp2_sprite_type_5_t vdp1_color_bank_type_5_t;
+typedef vdp2_sprite_type_6_t vdp1_color_bank_type_6_t;
+typedef vdp2_sprite_type_7_t vdp1_color_bank_type_7_t;
+
+typedef vdp2_sprite_type_8_t vdp1_color_bank_type_8_t;
+typedef vdp2_sprite_type_9_t vdp1_color_bank_type_9_t;
+typedef vdp2_sprite_type_a_t vdp1_color_bank_type_a_t;
+typedef vdp2_sprite_type_b_t vdp1_color_bank_type_b_t;
+typedef vdp2_sprite_type_c_t vdp1_color_bank_type_c_t;
+typedef vdp2_sprite_type_d_t vdp1_color_bank_type_d_t;
+typedef vdp2_sprite_type_e_t vdp1_color_bank_type_e_t;
+typedef vdp2_sprite_type_f_t vdp1_color_bank_type_f_t;
+
+
+typedef union VDP1_COLOUR_BANK
 {
-} vdp1_clut_t;
+	vdp1_color_bank_type_0_t type_0;
+	vdp1_color_bank_type_1_t type_1;
+	vdp1_color_bank_type_2_t type_2;
+	vdp1_color_bank_type_3_t type_3;
+	vdp1_color_bank_type_4_t type_4;
+	vdp1_color_bank_type_5_t type_5;
+	vdp1_color_bank_type_6_t type_6;
+	vdp1_color_bank_type_7_t type_7;
+	vdp1_color_bank_type_8_t type_8;
+	vdp1_color_bank_type_9_t type_9;
+	vdp1_color_bank_type_a_t type_a;
+	vdp1_color_bank_type_b_t type_b;
+	vdp1_color_bank_type_c_t type_c;
+	vdp1_color_bank_type_d_t type_d;
+	vdp1_color_bank_type_e_t type_e;
+	vdp1_color_bank_type_f_t type_f;
+	
+} vdp1_color_bank_t;
+
+
+typedef union VDP1_CLUT
+{
+	vdp1_color_bank_t entries[16];
+	rgb1555_t colors[16];
+	
+} __aligned(32) vdp1_clut_t;
 
 
 typedef struct VDP1_VRAM_PARTITIONS
@@ -49,7 +95,7 @@ typedef struct VDP1_VRAM_PARTITIONS
 	vdp1_clut_t* clut_base;
 	uint32_t clut_size;
 	
-	vdp1_vram_t* remaining_base;
+	void* remaining_base;
 	uint32_t remaining_size;
 	
 } vdp1_vram_partitions_t;

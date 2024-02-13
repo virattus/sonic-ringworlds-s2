@@ -8,13 +8,12 @@
 #include <gfx/render/displaylist.h>
 
 
-typedef enum _drawColDepth
+typedef enum DRAW_COL_DEPTH
 {
-	COL_ARGB_1555,
-	COL_RGB_888,
+	COL_RGB_1555,
 	COL_RGBA_8888,
 	
-} DrawColDepth;
+} DrawColDepth_t;
 
 
 typedef struct DRAW_STATE
@@ -23,12 +22,11 @@ typedef struct DRAW_STATE
 	VRAM* textureBuffer;
 	int16_vec2_t bufferSize;
 	int16_vec2_t textureBufferSize;
-	DrawColDepth colDepth;
-	int16_vec2_t SystemClipMin, SystemClipMax;
-	int16_vec2_t UserClipMin, UserClipMax;
+	DrawColDepth_t colDepth;
+	int16_vec2_t SystemClipMin;
+	int16_vec2_t SystemClipMax;
 	
 } DrawState_t;
-
 
 
 #endif

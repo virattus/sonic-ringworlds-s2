@@ -19,9 +19,12 @@ typedef struct GAMEWINDOW
 	WINDOW win;
 	
 	char title[GAMEWINDOW_TITLE_MAX];
-	uint32_t width, height;
+	int16_vec2_t resolution;
+	int16_vec2_t vdpResolution;
 	bool displayFramerate;
+	bool limitFramerate;
 	uint32_t frameCount;
+	uint64_t frameTicks;
 	
 } gamewindow_t;
 
